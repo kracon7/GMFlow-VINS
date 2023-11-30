@@ -1,8 +1,8 @@
 %YAML:1.0
 
 #common parameters
-imu_topic: "/imu0"
-image_topic: "/cam1/image_raw"
+imu_topic: "/camera/imu"
+image_topic: "/camera/color/image_raw"
 output_dir: "~/output/"
 
 #camera calibration 
