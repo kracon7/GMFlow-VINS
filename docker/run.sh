@@ -41,7 +41,7 @@ docker run \
   --name gvins \
   -e DISPLAY=$DISPLAY \
   -v /tmp/.X11-unix/:/tmp/.X11-unix:ro \
-  -v $GVINS_DIR:/root/catkin_ws/src/GMFlow-VINS/:ro \
+  -v $GVINS_DIR:/root/catkin_ws/src/GMFlow-VINS/ \
   -v $HOME/tmp:/root/tmp/ \
   gvins:latest \
   /bin/bash

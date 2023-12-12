@@ -11,7 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
     sensor_msgs
     cv_bridge
     gvins_camera_model
-    message_generation
+    genmsg
     )
 
 find_package(OpenCV REQUIRED)
@@ -25,6 +25,9 @@ add_message_files(
 add_service_files(FILES
   EstimateGMFlow.srv
 )
+
+## Generate added messages and services
+generate_messages(DEPENDENCIES std_msgs sensor_msgs)
 
 catkin_package()
 

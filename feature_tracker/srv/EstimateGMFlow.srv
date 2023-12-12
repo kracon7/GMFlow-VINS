@@ -1,4 +1,4 @@
 sensor_msgs/Image img1
 sensor_msgs/Image img2
 ---
-gvins/GMFlow matches
+gvins_feature_tracker/GMFlow matches

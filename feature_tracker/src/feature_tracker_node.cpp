@@ -7,6 +7,7 @@
 #include <cv_bridge/cv_bridge.h>
 #include <message_filters/subscriber.h>
 
+#include "gvins_feature_tracker/EstimateGMFlow.h"
 #include "feature_tracker.h"
 
 #define SHOW_UNDISTORTION 0
@@ -17,6 +18,8 @@ queue<sensor_msgs::ImageConstPtr> img_buf;
 
 ros::Publisher pub_img,pub_match;
 ros::Publisher pub_restart;
+ros::ServiceClient gmflow_client;
+gvins_feature_tracker::EstimateGMFlow gmflow_srv;
 
 FeatureTracker trackerData[NUM_OF_CAM];
 double first_image_time;
@@ -233,6 +236,7 @@ int main(int argc, char **argv)
     pub_img = n.advertise<sensor_msgs::PointCloud>("feature", 1000);
     pub_match = n.advertise<sensor_msgs::Image>("feature_img",1000);
     pub_restart = n.advertise<std_msgs::Bool>("restart",1000);
+    gmflow_client = n.serviceClient<gvins_feature_tracker::EstimateGMFlow>("estimate_gmflow");
     /*
     if (SHOW_TRACK)
         cv::namedWindow("vis", cv::WINDOW_NORMAL);
