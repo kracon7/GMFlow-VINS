@@ -1,3 +1,5 @@
+#!/root/.envs/py38/bin/python3.8
+
 import os
 import time
 import torch
@@ -5,45 +7,25 @@ import torch.nn.functional as F
 import logging
 import yaml
 import rospy
-from indexed import IndexedOrderedDict
 import numpy as np
 from pathlib import Path
 
-import PIL
-from sensor_msgs.msg import Image, PointCloud
-from .gmflow.gmflow import GMFlow
-from .gmflow_evaluate import FlowPredictor
+from sensor_msgs.msg import Image
+from gvins_feature_tracker.srv import EstimateGMFlow, EstimateGMFlowRequest, EstimateGMFlowResponse
+from gmflow.gmflow import GMFlow
+from gmflow_evaluate import FlowPredictor
 
 HOME = Path.home()
-
-log = logging.getLogger("MOTION_FIELD")
  
-class MotionFieldPublisher:
-    def __init__(self, to_frame='base'):
-        super().__init__('motion_field_publisher')
-
-        self.camera_k = None
-        self.camera_rays = None
-        param_file = rospy.get_param('config_file')
-        with open(param_file, 'r') as f:
-            ros_params = yaml.load(f, Loader=yaml.Loader)
-
-        self.feature_pub = rospy.Publisher('feature',
-                                           PointCloud,
-                                           queue_size=1)
-
-        self.color_sub = rospy.Subscriber(ros_params['image_topic'], 
-                                          Image, 
-                                          self.image_callback,
-                                          queue_size=1)
-        self.frame_buffer = IndexedOrderedDict()
-
+class GMFlowEstimator:
+    def __init__(self):
         # Load GMFlow network parameters
-        gmflow_dir_root = os.path.dirname(
+        gvins_dir_root = os.path.dirname(
+                            os.path.dirname(
                                 os.path.dirname(
-                                    os.path.abspath('__file__')))
+                                    os.path.abspath(__file__))))
         gmflow_param_file = os.path.join(
-                                gmflow_dir_root, 
+                                gvins_dir_root, 
                                 'config',
                                 'gmflow_with_refinement.yaml')
         with open(gmflow_param_file, 'r') as f:
@@ -73,7 +55,7 @@ class MotionFieldPublisher:
         # resume checkpoints
         if gmflow_params['checkpoint'] != '':
             checkpoint_path = os.path.join(
-                gmflow_dir_root,
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                 gmflow_params['checkpoint']
             )
             print('Load checkpoint: %s' % checkpoint_path)
@@ -92,106 +74,36 @@ class MotionFieldPublisher:
                                             gmflow_params['prop_radius_list'],
                                             gmflow_params['pred_bidir_flow'])
 
-        self.frame_count = 0
-        # Throw frame every
-        self.frame_skip = 2
-        # Run inference every k frames from buffer
-        self.inference_every = 3
-        # Inference between current frame and previous frame
-        self.inference_skip = 2
-
         self.init_grid()
 
-    def image_callback(self, color_msg: Image, wrist_depth_msg: Image):
-        # Wait until we have a camera k
-        if self.camera_k is None:
-            return
-        
-        self.frame_count += 1
-        if self.frame_count % self.frame_skip == 0:
-            return
+    def estimate(self, req: EstimateGMFlowRequest):
         
         now = time.time()
-        print("Received frame id: %d"%self.frame_count)
+        rospy.loginfo("Received request to estimate GMFlow")
         
-        msg_time = color_msg.header.stamp.to_sec()
-
-        wrist_depth = self.ros_depth_to_torch_tensor(wrist_depth_msg)
-        wrist_points = wrist_depth * self.camera_rays
-        wrist_rgb = self.ros_color_to_torch_tensor(color_msg)
-        
-        rgbxyz = torch.cat([wrist_rgb, wrist_points], dim=0)
-
-        if self.to_frame == 'base':
-            current_ja = np.array(self.last_joint_state.position[:7])
-            T = torch.tensor(self.camera_pose_calculator.compute_robot_T_camera(
-                                                            current_ja),
-                            dtype=torch.float32, device=self.device)
-        elif self.to_frame == 'camera':
-            T = torch.eye(4, dtype=torch.float32, device=self.device)
-            
-        self.frame_buffer[msg_time] = {'rgbxyz': rgbxyz, 'T': T}
-
-        if (self.frame_count // self.frame_skip) % self.inference_every != 0:
-            return
-        
-        if len(self.frame_buffer) < 5:
-            return
-
-        while len(self.frame_buffer) > 10:
-            self.frame_buffer.popitem(last=False)
-
-        prev_idx = -1 - self.inference_skip
-        next_idx = -1
-        rgbxyz_1 = self.frame_buffer.values()[prev_idx]['rgbxyz']
-        rgbxyz_2 = self.frame_buffer.values()[next_idx]['rgbxyz']
-        dt = self.frame_buffer.keys()[next_idx] - self.frame_buffer.keys()[prev_idx]
-
-        rgb_1 = rgbxyz_1[:3]
-        rgb_2 = rgbxyz_2[:3]
+        msg_time = req.img1.header.stamp.to_sec()
+        rgb_1 = self.ros_color_to_torch_tensor(req.img1)
+        rgb_2 = self.ros_color_to_torch_tensor(req.img2)
 
         flow = self.flow_predictor.pred(rgb_1, rgb_2, self.finger_mask)
         flow = flow.permute((2,0,1)).unsqueeze(0)
 
-        # Normalize flow for grid sampling
-        flow[:,0] /= (self.im_h / 2)
-        flow[:,1] /= (self.im_w / 2)
+        # # Normalize flow for grid sampling
+        # flow[:,0] /= (self.im_h / 2)
+        # flow[:,1] /= (self.im_w / 2)
 
-        pts_1 = F.grid_sample(rgbxyz_1[3:].unsqueeze(0), self.grid, mode='nearest', align_corners=True).reshape(3, -1).T
-        vec_2d = F.grid_sample(flow, self.grid, mode='nearest', align_corners=True)
-        grid_next = self.grid + vec_2d.permute(0,2,3,1)
-        pts_2 = F.grid_sample(rgbxyz_2[3:].unsqueeze(0), grid_next, mode='nearest', align_corners=True).reshape(3, -1).T
+        # pts_1 = F.grid_sample(rgbxyz_1[3:].unsqueeze(0), self.grid, mode='nearest', align_corners=True).reshape(3, -1).T
+        # vec_2d = F.grid_sample(flow, self.grid, mode='nearest', align_corners=True)
+        # grid_next = self.grid + vec_2d.permute(0,2,3,1)
+        # pts_2 = F.grid_sample(rgbxyz_2[3:].unsqueeze(0), grid_next, mode='nearest', align_corners=True).reshape(3, -1).T
 
-        if self.to_frame == "base":
-            print('TO BASE!!!!!')
-            h_pts_1 = torch.cat([pts_1, 
-                                 torch.ones([pts_1.shape[0],1], dtype=torch.float32, device=self.device)], dim=1)
-            h_pts_2 = torch.cat([pts_2, 
-                                 torch.ones([pts_1.shape[0],1], dtype=torch.float32, device=self.device)], dim=1)
-            robot_T_cam_1 = self.frame_buffer.values()[prev_idx]['T']
-            robot_T_cam_2 = self.frame_buffer.values()[next_idx]['T']
-            h_pts_1 = (robot_T_cam_1 @ h_pts_1.T).T
-            h_pts_2 = (robot_T_cam_2 @ h_pts_2.T).T
-            pts_1 = h_pts_1[:,:3]
-            pts_2 = h_pts_2[:,:3]
+        res = EstimateGMFlowResponse()
+        res.matches.height = 1
+        res.matches.feature1 = [1,2,3,4]
+        res.matches.feature2 = [5,6,7,8]
 
-        vec = pts_2 - pts_1
-        velocity = vec / dt
-        vec_norm = torch.norm(vec, dim=1)
-        # Pass filter and validility check
-        valid = torch.logical_not(torch.isnan(velocity[:,0])) \
-                & (vec_norm < 0.03) \
-                & (vec_norm > 0.007)
-
-        valid_pts = pts_1[valid]
-        valid_vel = velocity[valid]
-
-        mfield_msg = MotionField()
-        mfield_msg.header = color_msg.header
-        mfield_msg.step = 6
-        mfield_msg.data = torch.cat([valid_pts, valid_vel], dim=1).reshape(-1).tolist()
-        self.mfield_pub.publish(mfield_msg)
-        print("GMFlow Node, image callback time: %.3fms"%(1e3 * (time.time() - now)))
+        print("GMFlow Server, service callback time: %.3fms"%(1e3 * (time.time() - now)))
+        return res
     
     def ros_color_to_torch_tensor(self, color_msg: Image):
         torch_img = torch.frombuffer(color_msg.data, dtype=torch.uint8).to(self.device)
@@ -209,13 +121,13 @@ class MotionFieldPublisher:
         self.grid = torch.stack([uu, vv], dim=-1).unsqueeze(0)
 
 def main():
-    rclpy.init()
-    motion_field_publisher =MotionFieldPublisher()
-    rclpy.spin(motion_field_publisher)
-    motion_field_publisher.destroy_node()
-    rclpy.shutdown()
+    rospy.init_node('estimate_gmflow_server')
+    gmflow_estimator = GMFlowEstimator()
+    s = rospy.Service('estimate_gmflow', EstimateGMFlow, gmflow_estimator.estimate)
+    print("Ready to estimate GMFlow")
+    rospy.spin()
 
 
 if __name__ == '__main__':
-    
+    print("Cuda device count: %d"%torch.cuda.device_count())
     main()

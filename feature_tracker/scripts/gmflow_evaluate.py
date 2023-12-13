@@ -8,11 +8,11 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
-from .gmflow_utils import frame_utils
-from .gmflow_utils.flow_viz import save_vis_flow_tofile
-from .gmflow_utils.utils import InputPadder, compute_out_of_boundary_mask
+from gmflow_utils import frame_utils
+from gmflow_utils.flow_viz import save_vis_flow_tofile
+from gmflow_utils.utils import InputPadder, compute_out_of_boundary_mask
 from glob import glob
-from .gmflow.geometry import forward_backward_consistency_check
+from gmflow.geometry import forward_backward_consistency_check
 
 
 class FlowPredictor:

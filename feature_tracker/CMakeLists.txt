@@ -7,6 +7,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
 
 find_package(catkin REQUIRED COMPONENTS
     roscpp
+    rospy
     std_msgs
     sensor_msgs
     cv_bridge

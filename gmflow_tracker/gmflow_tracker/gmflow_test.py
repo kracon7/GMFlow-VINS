@@ -6,7 +6,7 @@ import os
 import cv2
 from PIL import Image
 from gmflow.gmflow import GMFlow
-from gmflow_evaluate import FlowPredictor, MplColorHelper
+from feature_tracker.scripts.gmflow_evaluate import FlowPredictor, MplColorHelper
 from gmflow_utils.frame_utils import read_gen
 
 def get_args_parser():
