@@ -18,8 +18,11 @@ queue<sensor_msgs::ImageConstPtr> img_buf;
 
 ros::Publisher pub_img,pub_match;
 ros::Publisher pub_restart;
+
+bool GMFLOW_ENABLE;
 ros::ServiceClient gmflow_client;
 gvins_feature_tracker::EstimateGMFlow gmflow_srv;
+gvins_feature_tracker::GMFlow matches;
 
 FeatureTracker trackerData[NUM_OF_CAM];
 double first_image_time;
@@ -28,6 +31,9 @@ bool first_image_flag = true;
 double last_image_time = 0;
 bool init_pub = 0;
 
+// Keep the last ROS Image message for GMFlow estimation
+sensor_msgs::Image last_img;
+
 void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
 {
     if(first_image_flag)
@@ -35,6 +41,7 @@ void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
         first_image_flag = false;
         first_image_time = img_msg->header.stamp.toSec();
         last_image_time = img_msg->header.stamp.toSec();
+        last_img = *img_msg;
         return;
     }
     // detect unstable camera stream
@@ -64,6 +71,20 @@ void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
     else
         PUB_THIS_FRAME = false;
 
+    if (GMFLOW_ENABLE) {
+        ROS_INFO("Sending gmflow request..");
+        gmflow_srv.request.img1 = last_img;
+        gmflow_srv.request.img2 = *img_msg;
+        if (gmflow_client.call(gmflow_srv)) {
+            // matches = gmflow_srv.response.matches;
+            matches = gmflow_srv.response.matches;
+            ROS_INFO("GMFlow response: %d", matches.height);
+        }
+        else {
+            ROS_INFO("Failed to get response from gmflow server");
+        }
+    }
+    
     cv_bridge::CvImageConstPtr ptr;
     if (img_msg->encoding == "8UC1")
     {
@@ -204,14 +225,16 @@ void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
         }
     }
     ROS_INFO("whole feature tracker processing costs: %f", t_r.toc());
+    last_img = *img_msg;
 }
 
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "feature_tracker");
-    ros::NodeHandle n("~");
+    ros::NodeHandle n;
     ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info);
     readParameters(n);
+    n.getParam("gmflow", GMFLOW_ENABLE);
 
     for (int i = 0; i < NUM_OF_CAM; i++)
         trackerData[i].readIntrinsicParameter(CAM_NAMES[i]);
@@ -233,10 +256,19 @@ int main(int argc, char **argv)
 
     ros::Subscriber sub_img = n.subscribe(IMAGE_TOPIC, 100, img_callback);
 
-    pub_img = n.advertise<sensor_msgs::PointCloud>("feature", 1000);
-    pub_match = n.advertise<sensor_msgs::Image>("feature_img",1000);
-    pub_restart = n.advertise<std_msgs::Bool>("restart",1000);
-    gmflow_client = n.serviceClient<gvins_feature_tracker::EstimateGMFlow>("estimate_gmflow");
+    pub_img = n.advertise<sensor_msgs::PointCloud>("/gvins_feature_tracker/feature", 1000);
+    pub_match = n.advertise<sensor_msgs::Image>("/gvins_feature_tracker/feature_img",1000);
+    pub_restart = n.advertise<std_msgs::Bool>("/gvins_feature_tracker/restart",1000);
+    if (GMFLOW_ENABLE) {
+        if (ros::service::waitForService("estimate_gmflow", 20)) {
+            ROS_INFO("estimate_gmflow service ready");
+            gmflow_client = n.serviceClient<gvins_feature_tracker::EstimateGMFlow>("estimate_gmflow");
+        }
+        else {
+            ROS_INFO("Timeout waiting for service: estimate_gmflow");
+            return 1;
+        }
+    }
     /*
     if (SHOW_TRACK)
         cv::namedWindow("vis", cv::WINDOW_NORMAL);

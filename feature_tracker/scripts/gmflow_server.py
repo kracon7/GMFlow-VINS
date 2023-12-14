@@ -102,7 +102,7 @@ class GMFlowEstimator:
         res.matches.feature1 = [1,2,3,4]
         res.matches.feature2 = [5,6,7,8]
 
-        print("GMFlow Server, service callback time: %.3fms"%(1e3 * (time.time() - now)))
+        rospy.loginfo("GMFlow Server, service callback time: %.3fms"%(1e3 * (time.time() - now)))
         return res
     
     def ros_color_to_torch_tensor(self, color_msg: Image):

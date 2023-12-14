@@ -1,15 +1,18 @@
 <launch>
     <arg name="config_path" default = "$(find gvins)/../config/rs_d455/rs_d455_config.yaml" />
 	<arg name="gvins_path" default = "$(find gvins)/../" />
+    <arg name="gmflow" default = "true" />
+
+    <param name="config_file" type="string" value="$(arg config_path)" />
+    <param name="gvins_folder" type="string" value="$(arg gvins_path)" />
+    <param name="gmflow" type="bool" value="$(arg gmflow)" />
+
+    <!-- <node name="gmflow_server" pkg="gvins_feature_tracker" type="gmflow_server.py" if="$(arg gmflow)"  output="screen"/>  -->
     
-    <node name="gvins_feature_tracker" pkg="gvins_feature_tracker" type="gvins_feature_tracker" output="log">
-        <param name="config_file" type="string" value="$(arg config_path)" />
-        <param name="gvins_folder" type="string" value="$(arg gvins_path)" />
+    <node name="gvins_feature_tracker" pkg="gvins_feature_tracker" type="gvins_feature_tracker" output="screen">
     </node>
 
     <node name="gvins" pkg="gvins" type="gvins" output="screen">
-       <param name="config_file" type="string" value="$(arg config_path)" />
-       <param name="gvins_folder" type="string" value="$(arg gvins_path)" />
     </node>
 
     <node type="rviz" name="rviz" pkg="rviz" args="-d $(find gvins)/../config/gvins_rviz_config.rviz" />
