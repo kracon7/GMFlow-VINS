@@ -32,6 +32,8 @@ class FlowPredictor:
         self.pred_bidir_flow = pred_bidir_flow
 
     def pred(self, img_1: torch.tensor, img_2: torch.tensor, mask: torch.tensor):
+
+        im_h, im_w = img_1.shape[1], img_1.shape[2]
         
         if self.inference_size is None:
             padder = InputPadder(img_1.shape, padding_factor=self.padding_factor)
@@ -60,6 +62,12 @@ class FlowPredictor:
             print("Inference time: %.2fms"%((time.time() - now) * 1e3))
             flow_pr = results_dict['flow_preds'][-1]  # [B, 2, H, W]
             flow = flow_pr[0].permute(1, 2, 0)  # [H, W, 2]
+        
+        if flow.shape[0] != im_h or flow.shape[1] != im_w:
+            off_h = (flow.shape[0] - im_h) // 2
+            off_w = (flow.shape[1] - im_w) // 2
+            flow = flow[off_h: flow.shape[0]-off_h, off_w: flow.shape[1] - off_w]
+
         if mask is not None:
             flow[mask] = 0
         return flow

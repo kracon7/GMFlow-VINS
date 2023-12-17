@@ -8,6 +8,7 @@
 #include <message_filters/subscriber.h>
 
 #include "gvins_feature_tracker/EstimateGMFlow.h"
+#include "gvins_feature_tracker/PixelCoordinates.h"
 #include "feature_tracker.h"
 
 #define SHOW_UNDISTORTION 0
@@ -22,7 +23,7 @@ ros::Publisher pub_restart;
 bool GMFLOW_ENABLE;
 ros::ServiceClient gmflow_client;
 gvins_feature_tracker::EstimateGMFlow gmflow_srv;
-gvins_feature_tracker::GMFlow matches;
+gvins_feature_tracker::GMFlow gmflow_response;
 
 FeatureTracker trackerData[NUM_OF_CAM];
 double first_image_time;
@@ -71,23 +72,8 @@ void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
     else
         PUB_THIS_FRAME = false;
 
-    if (GMFLOW_ENABLE) {
-        ROS_INFO("Sending gmflow request..");
-        gmflow_srv.request.img1 = last_img;
-        gmflow_srv.request.img2 = *img_msg;
-        if (gmflow_client.call(gmflow_srv)) {
-            // matches = gmflow_srv.response.matches;
-            matches = gmflow_srv.response.matches;
-            ROS_INFO("GMFlow response: %d", matches.height);
-        }
-        else {
-            ROS_INFO("Failed to get response from gmflow server");
-        }
-    }
-    
     cv_bridge::CvImageConstPtr ptr;
-    if (img_msg->encoding == "8UC1")
-    {
+    if (img_msg->encoding == "8UC1") {
         sensor_msgs::Image img;
         img.header = img_msg->header;
         img.height = img_msg->height;
@@ -103,29 +89,51 @@ void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
 
     cv::Mat show_img = ptr->image;
     TicToc t_r;
-    for (int i = 0; i < NUM_OF_CAM; i++)
-    {
-        ROS_DEBUG("processing camera %d", i);
-        if (i != 1 || !STEREO_TRACK)
-            trackerData[i].readImage(ptr->image.rowRange(ROW * i, ROW * (i + 1)), img_msg->header.stamp.toSec());
-        else
-        {
-            if (EQUALIZE)
-            {
-                cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE();
-                clahe->apply(ptr->image.rowRange(ROW * i, ROW * (i + 1)), trackerData[i].cur_img);
-            }
-            else
-                trackerData[i].cur_img = ptr->image.rowRange(ROW * i, ROW * (i + 1));
+
+    if (GMFLOW_ENABLE) {
+        ROS_INFO("Sending gmflow request..");
+        gmflow_srv.request.img1 = last_img;
+        gmflow_srv.request.img2 = *img_msg;
+        gmflow_srv.request.cur_pts = gvins_feature_tracker::PixelCoordinates();
+        for (auto pt: trackerData[0].cur_pts) {
+            gmflow_srv.request.cur_pts.x.push_back(pt.x);
+            gmflow_srv.request.cur_pts.y.push_back(pt.y);
         }
+        if (gmflow_client.call(gmflow_srv)) {
+            // matches = gmflow_srv.response.matches;
+            gmflow_response = gmflow_srv.response.response;
+            // ROS_INFO("GMFlow response: %d", matches.height);
+            trackerData[0].readImage(gmflow_response,
+                                     img_msg->header.stamp.toSec());
+        }
+        else {
+            ROS_INFO("Failed to get response from gmflow server");
+        }
+    }
+    else {
+        for (int i = 0; i < NUM_OF_CAM; i++)
+        {
+            ROS_DEBUG("processing camera %d", i);
+            if (i != 1 || !STEREO_TRACK)
+                trackerData[i].readImage(ptr->image.rowRange(ROW * i, ROW * (i + 1)), img_msg->header.stamp.toSec());
+            else
+            {
+                if (EQUALIZE)
+                {
+                    cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE();
+                    clahe->apply(ptr->image.rowRange(ROW * i, ROW * (i + 1)), trackerData[i].cur_img);
+                }
+                else
+                    trackerData[i].cur_img = ptr->image.rowRange(ROW * i, ROW * (i + 1));
+            }
 
 #if SHOW_UNDISTORTION
         trackerData[i].showUndistortion("undistrotion_" + std::to_string(i));
 #endif
+        }
     }
 
-    for (unsigned int i = 0;; i++)
-    {
+    for (unsigned int i = 0;; i++) {
         bool completed = false;
         for (int j = 0; j < NUM_OF_CAM; j++)
             if (j != 1 || !STEREO_TRACK)
@@ -134,8 +142,7 @@ void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
             break;
     }
 
-   if (PUB_THIS_FRAME)
-   {
+   if (PUB_THIS_FRAME) {
         pub_count++;
         sensor_msgs::PointCloudPtr feature_points(new sensor_msgs::PointCloud);
         sensor_msgs::ChannelFloat32 id_of_point;
@@ -148,8 +155,7 @@ void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
         feature_points->header.frame_id = "world";
 
         vector<set<int>> hash_ids(NUM_OF_CAM);
-        for (int i = 0; i < NUM_OF_CAM; i++)
-        {
+        for (int i = 0; i < NUM_OF_CAM; i++) {
             auto &un_pts = trackerData[i].cur_un_pts;
             auto &cur_pts = trackerData[i].cur_pts;
             auto &ids = trackerData[i].ids;
@@ -260,7 +266,7 @@ int main(int argc, char **argv)
     pub_match = n.advertise<sensor_msgs::Image>("/gvins_feature_tracker/feature_img",1000);
     pub_restart = n.advertise<std_msgs::Bool>("/gvins_feature_tracker/restart",1000);
     if (GMFLOW_ENABLE) {
-        if (ros::service::waitForService("estimate_gmflow", 20)) {
+        if (ros::service::waitForService("estimate_gmflow", 5000)) {
             ROS_INFO("estimate_gmflow service ready");
             gmflow_client = n.serviceClient<gvins_feature_tracker::EstimateGMFlow>("estimate_gmflow");
         }

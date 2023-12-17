@@ -20,6 +20,7 @@ find_package(OpenCV REQUIRED)
 add_message_files(
   DIRECTORY msg
   FILES 
+  PixelCoordinates.msg
   GMFlow.msg
 )
 

@@ -9,9 +9,12 @@
 #include <opencv2/opencv.hpp>
 #include <eigen3/Eigen/Dense>
 
+#include <sensor_msgs/Image.h>
+
 #include "camodocal/camera_models/CameraFactory.h"
 #include "camodocal/camera_models/CataCamera.h"
 #include "camodocal/camera_models/PinholeCamera.h"
+#include "gvins_feature_tracker/EstimateGMFlow.h"
 
 #include "parameters.h"
 #include "tic_toc.h"
@@ -31,6 +34,10 @@ class FeatureTracker
     FeatureTracker();
 
     void readImage(const cv::Mat &_img,double _cur_time);
+
+    void readImage(
+      const gvins_feature_tracker::GMFlow &_gmflow_msg,
+      double _cur_time);
 
     void setMask();
 

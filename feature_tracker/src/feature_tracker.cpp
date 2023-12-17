@@ -78,6 +78,67 @@ void FeatureTracker::addPoints()
     }
 }
 
+
+void FeatureTracker::readImage(
+    const gvins_feature_tracker::GMFlow &_gmflow_msg,
+    double _cur_time)
+{
+    TicToc t_r;
+    cur_time = _cur_time;
+
+    forw_pts.clear();
+    vector<double> forw_pts_x = _gmflow_msg.forw_pts.x;
+    vector<double> forw_pts_y = _gmflow_msg.forw_pts.y;
+    vector<uchar> status = _gmflow_msg.status;
+    for (int i = 0; i < forw_pts_x.size(); i++) {
+        forw_pts.push_back(cv::Point2f(forw_pts_x[i], forw_pts_y[i]));
+    }
+
+    if (cur_pts.size() > 0)
+    {
+        TicToc t_o;
+        
+        for (int i = 0; i < int(forw_pts.size()); i++)
+            if (status[i] && !inBorder(forw_pts[i]))
+                status[i] = 0;
+        reduceVector(cur_pts, status);
+        reduceVector(forw_pts, status);
+        reduceVector(ids, status);
+        reduceVector(cur_un_pts, status);
+        reduceVector(track_cnt, status);
+        ROS_DEBUG("temporal optical flow costs: %fms", t_o.toc());
+    }
+
+    for (auto &n : track_cnt)
+        n++;
+
+    if (PUB_THIS_FRAME)
+    {
+        rejectWithF();
+        ROS_DEBUG("set mask begins");
+        TicToc t_m;
+        setMask();
+        ROS_DEBUG("set mask costs %fms", t_m.toc());
+
+        int n_max_cnt = MAX_CNT - static_cast<int>(forw_pts.size());
+        n_pts.clear();
+        for (int i = 0; i < MAX_CNT - forw_pts.size(); i++) {
+            n_pts.push_back(cv::Point2f(_gmflow_msg.candidate_forw_pts.x[i],
+                                        _gmflow_msg.candidate_forw_pts.y[i]));
+        }
+        
+        ROS_DEBUG("add feature begins");
+        TicToc t_a;
+        addPoints();
+        ROS_DEBUG("selectFeature costs: %fms", t_a.toc());
+    }
+    prev_un_pts = cur_un_pts;
+    cur_pts = forw_pts;
+    undistortedPoints();
+    prev_time = cur_time;
+}
+
+
 void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
 {
     cv::Mat img;

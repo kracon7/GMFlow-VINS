@@ -8,18 +8,18 @@ output_dir: "~/output/"
 #camera calibration 
 model_type: PINHOLE
 camera_name: camera
-image_width: 1280 
-image_height: 720
+image_width: 640
+image_height: 480
 distortion_parameters:
    k1: -0.05653929337859154
    k2: 0.06794522702693939
    p1: -0.0005789361894130707
    p2: 0.0008347411639988422
 projection_parameters:
-   fx: 640.952392578125
-   fy: 640.1552124023438
-   cx: 645.7549438476562
-   cy: 367.6300354003906
+   fx: 384.57147216796875
+   fy: 384.0931091308594
+   cx: 323.45294189453125
+   cy: 244.57803344726562
 
 gnss_enable: 0
 gnss_meas_topic: "/ublox_driver/range_meas"           # GNSS raw measurement topic

@@ -1,4 +1,5 @@
 sensor_msgs/Image img1
 sensor_msgs/Image img2
+gvins_feature_tracker/PixelCoordinates cur_pts
 ---
-gvins_feature_tracker/GMFlow matches
+gvins_feature_tracker/GMFlow response

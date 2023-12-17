@@ -86,4 +86,4 @@ RUN   virtualenv -p /usr/bin/python3.8 ~/.envs/py38
 RUN   ~/.envs/py38/bin/python -m pip install --upgrade pip
 RUN   ~/.envs/py38/bin/python -m pip install torch torchvision torchaudio \
       --index-url https://download.pytorch.org/whl/cu118
-RUN   ~/.envs/py38/bin/python -m pip install numpy opencv-python matplotlib pyyaml rospkg
+RUN   ~/.envs/py38/bin/python -m pip install numpy opencv-python matplotlib pyyaml rospkg scipy

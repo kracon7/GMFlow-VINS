@@ -7,7 +7,7 @@
     <param name="gvins_folder" type="string" value="$(arg gvins_path)" />
     <param name="gmflow" type="bool" value="$(arg gmflow)" />
 
-    <!-- <node name="gmflow_server" pkg="gvins_feature_tracker" type="gmflow_server.py" if="$(arg gmflow)"  output="screen"/>  -->
+    <node name="gmflow_server" pkg="gvins_feature_tracker" type="gmflow_server.py" if="$(arg gmflow)"  output="screen"/> 
     
     <node name="gvins_feature_tracker" pkg="gvins_feature_tracker" type="gvins_feature_tracker" output="screen">
     </node>

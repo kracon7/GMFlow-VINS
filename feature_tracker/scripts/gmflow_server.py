@@ -11,14 +11,22 @@ import numpy as np
 from pathlib import Path
 
 from sensor_msgs.msg import Image
-from gvins_feature_tracker.srv import EstimateGMFlow, EstimateGMFlowRequest, EstimateGMFlowResponse
+from gvins_feature_tracker.srv import (
+    EstimateGMFlow, 
+    EstimateGMFlowRequest, 
+    EstimateGMFlowResponse
+)
 from gmflow.gmflow import GMFlow
 from gmflow_evaluate import FlowPredictor
+from scipy.interpolate import interpn
 
 HOME = Path.home()
  
 class GMFlowEstimator:
     def __init__(self):
+        self.im_h = None
+        self.im_w = None
+
         # Load GMFlow network parameters
         gvins_dir_root = os.path.dirname(
                             os.path.dirname(
@@ -82,25 +90,36 @@ class GMFlowEstimator:
         rospy.loginfo("Received request to estimate GMFlow")
         
         msg_time = req.img1.header.stamp.to_sec()
-        rgb_1 = self.ros_color_to_torch_tensor(req.img1)
+        rgb_1 = self.ros_color_to_torch_tensor(req.img1) # [2, H, W]
         rgb_2 = self.ros_color_to_torch_tensor(req.img2)
+        cur_pts = np.stack([req.cur_pts.x, req.cur_pts.y]).T
+        rospy.loginfo("Got %d cur_pts"%(cur_pts.shape[0]))
 
-        flow = self.flow_predictor.pred(rgb_1, rgb_2, self.finger_mask)
-        flow = flow.permute((2,0,1)).unsqueeze(0)
+        flow = self.flow_predictor.pred(rgb_1, rgb_2, None) # [H, W, 2]
 
-        # # Normalize flow for grid sampling
-        # flow[:,0] /= (self.im_h / 2)
-        # flow[:,1] /= (self.im_w / 2)
+        if self.im_h is None:
+            self.im_h = rgb_1.shape[1]
+            self.im_w = rgb_1.shape[2]
 
-        # pts_1 = F.grid_sample(rgbxyz_1[3:].unsqueeze(0), self.grid, mode='nearest', align_corners=True).reshape(3, -1).T
-        # vec_2d = F.grid_sample(flow, self.grid, mode='nearest', align_corners=True)
-        # grid_next = self.grid + vec_2d.permute(0,2,3,1)
-        # pts_2 = F.grid_sample(rgbxyz_2[3:].unsqueeze(0), grid_next, mode='nearest', align_corners=True).reshape(3, -1).T
+        candidate_forw_pts = self.grid.reshape(-1, 2).cpu().numpy()
+        np.random.shuffle(candidate_forw_pts)
+
+        np_flow = flow.permute(1,0,2).cpu().numpy()  # W x H x 2
+        axs = (np.arange(np_flow.shape[0]), np.arange(np_flow.shape[1]))
+        # if cur_pts.shape[0] > 0:
+        #     import pdb
+        #     pdb.set_trace()
+        flow_samples = interpn(axs, np_flow, cur_pts)
+        forw_pts = cur_pts + flow_samples
+
+        rospy.loginfo("Estimated %d forw_pts"%(forw_pts.shape[0]))
 
         res = EstimateGMFlowResponse()
-        res.matches.height = 1
-        res.matches.feature1 = [1,2,3,4]
-        res.matches.feature2 = [5,6,7,8]
+        res.response.forw_pts.x = forw_pts[:, 0]
+        res.response.forw_pts.y = forw_pts[:, 1]
+        res.response.status = [1] * forw_pts.shape[0]
+        res.response.candidate_forw_pts.x = candidate_forw_pts[:,0] * self.im_w
+        res.response.candidate_forw_pts.y = candidate_forw_pts[:,1] * self.im_h
 
         rospy.loginfo("GMFlow Server, service callback time: %.3fms"%(1e3 * (time.time() - now)))
         return res
@@ -114,9 +133,9 @@ class GMFlowEstimator:
 
     def init_grid(self):
         # Horizontal direction in image frame
-        u = torch.linspace(-0.85, 0.85, 45, dtype=torch.float32, device=self.device)
+        u = torch.linspace(0.05, 0.95, 45, dtype=torch.float32, device=self.device)
         # Vertical direction in image frame
-        v = torch.linspace(-0.85, 0.85, 35, dtype=torch.float32, device=self.device)
+        v = torch.linspace(0.05, 0.95, 35, dtype=torch.float32, device=self.device)
         vv, uu = torch.meshgrid(v, u, indexing='xy')
         self.grid = torch.stack([uu, vv], dim=-1).unsqueeze(0)
 

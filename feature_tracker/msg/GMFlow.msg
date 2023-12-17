@@ -1,3 +1,3 @@
-uint32 height
-float64[] feature1
-float64[] feature2
+gvins_feature_tracker/PixelCoordinates forw_pts
+bool[] status
+gvins_feature_tracker/PixelCoordinates candidate_forw_pts
