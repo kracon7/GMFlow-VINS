@@ -38,10 +38,10 @@ docker run \
   --env=NVIDIA_DRIVER_CAPABILITIES=all \
   --env=QT_X11_NO_MITSHM=1 \
   --gpus all \
-  --name gvins \
+  --name gmflow_vins \
   -e DISPLAY=$DISPLAY \
   -v /tmp/.X11-unix/:/tmp/.X11-unix:ro \
   -v $GVINS_DIR:/root/catkin_ws/src/GMFlow-VINS/ \
   -v $HOME/tmp:/root/tmp/ \
-  gvins:latest \
+  gmflow_vins:latest \
   /bin/bash

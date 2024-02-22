@@ -65,7 +65,9 @@ RUN   git clone https://gitlab.com/libeigen/eigen.git && \
       mkdir -p $CATKIN_WS/src/ && \
       cd $CATKIN_WS/src && \
       # clone gnss_comm repo
-      git clone https://github.com/HKUST-Aerial-Robotics/gnss_comm.git
+      git clone https://github.com/HKUST-Aerial-Robotics/gnss_comm.git && \
+      # clone vins_fusion repo
+      git clone https://github.com/HKUST-Aerial-Robotics/VINS-Fusion.git
 
 # Build GVINS
 WORKDIR $CATKIN_WS

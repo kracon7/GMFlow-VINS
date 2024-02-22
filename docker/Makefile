@@ -9,7 +9,7 @@ help:
 	@echo ""
 
 build:
-	@docker build --tag gvins -f ./Dockerfile ..
+	@docker build --tag gmflow_vins -f ./Dockerfile ..
 
 clean:
-	@docker rmi -f gvins
+	@docker rmi -f gmflow_vins
