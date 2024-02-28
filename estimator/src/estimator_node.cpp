@@ -131,6 +131,7 @@ getMeasurements(std::vector<sensor_msgs::ImuConstPtr> &imu_msg, sensor_msgs::Poi
     while (!feature_buf.empty() && front_imu_ts > front_feature_ts)
     {
         ROS_WARN("throw img, only should happen at the beginning");
+        ROS_DEBUG("feature buffer size is: %zu", feature_buf.size());
         feature_buf.pop();
         front_feature_ts = feature_buf.front()->header.stamp.toSec();
     }
@@ -238,6 +239,7 @@ void feature_callback(const sensor_msgs::PointCloudConstPtr &feature_msg)
 {
     ++ feature_msg_counter;
 
+    ROS_DEBUG("skip param %d, feature_msg_cnt: %d", skip_parameter, feature_msg_counter);
     if (skip_parameter < 0 && time_diff_valid)
     {
         const double this_feature_ts = feature_msg->header.stamp.toSec()+time_diff_gnss_local;
@@ -428,7 +430,7 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "gvins");
     ros::NodeHandle n("~");
-    ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info);
+    ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug);
     readParameters(n);
     estimator_ptr.reset(new Estimator());
     estimator_ptr->setParameter();
