@@ -239,7 +239,7 @@ void feature_callback(const sensor_msgs::PointCloudConstPtr &feature_msg)
 {
     ++ feature_msg_counter;
 
-    ROS_DEBUG("skip param %d, feature_msg_cnt: %d", skip_parameter, feature_msg_counter);
+    ROS_DEBUG("skip param %d, feature_msg_cnt: %lld", skip_parameter, (long long)feature_msg_counter);
     if (skip_parameter < 0 && time_diff_valid)
     {
         const double this_feature_ts = feature_msg->header.stamp.toSec()+time_diff_gnss_local;
