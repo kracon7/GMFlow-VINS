@@ -28,17 +28,30 @@ class FeaturePerFrame
         velocity.x() = _point(5); 
         velocity.y() = _point(6); 
         cur_td = td;
+        is_stereo = false;
+    }
+    void rightObservation(const Eigen::Matrix<double, 7, 1> &_point)
+    {
+        pointRight.x() = _point(0);
+        pointRight.y() = _point(1);
+        pointRight.z() = _point(2);
+        uvRight.x() = _point(3);
+        uvRight.y() = _point(4);
+        velocityRight.x() = _point(5); 
+        velocityRight.y() = _point(6); 
+        is_stereo = true;
     }
     double cur_td;
-    Vector3d point;
-    Vector2d uv;
-    Vector2d velocity;
+    Vector3d point, pointRight;
+    Vector2d uv, uvRight;
+    Vector2d velocity, velocityRight;
     double z;
     bool is_used;
     double parallax;
     MatrixXd A;
     VectorXd b;
     double dep_gradient;
+    bool is_stereo;
 };
 
 class FeaturePerId

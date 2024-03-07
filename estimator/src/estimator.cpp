@@ -885,10 +885,10 @@ void Estimator::optimization()
         else
             ROS_DEBUG("estimate extinsic param");
     }
-    if (ESTIMATE_TD)
-    {
-        problem.AddParameterBlock(para_Td[0], 1);
-    }
+
+    problem.AddParameterBlock(para_Td[0], 1);
+    if (!ESTIMATE_TD || Vs[0].norm() < 0.2)
+        problem.SetParameterBlockConstant(para_Td[0]);
 
     if (gnss_ready)
     {
@@ -1019,22 +1019,65 @@ void Estimator::optimization()
         for (auto &it_per_frame : it_per_id.feature_per_frame)
         {
             imu_j++;
-            if (imu_i == imu_j)
+            if (imu_i != imu_j)
             {
-                continue;
+                Vector3d pts_j = it_per_frame.point;
+                ProjectionTwoFrameOneCamFactor *f_td = new ProjectionTwoFrameOneCamFactor(
+                            pts_i, 
+                            pts_j, 
+                            it_per_id.feature_per_frame[0].velocity, 
+                            it_per_frame.velocity,
+                            it_per_id.feature_per_frame[0].cur_td, 
+                            it_per_frame.cur_td);
+                problem.AddResidualBlock(
+                            f_td, 
+                            loss_function, 
+                            para_Pose[imu_i], 
+                            para_Pose[imu_j], 
+                            para_Ex_Pose[0], 
+                            para_Feature[feature_index], 
+                            para_Td[0]);
             }
-            Vector3d pts_j = it_per_frame.point;
-            if (ESTIMATE_TD)
-            {
-                    ProjectionTdFactor *f_td = new ProjectionTdFactor(pts_i, pts_j, 
-                        it_per_id.feature_per_frame[0].velocity, it_per_frame.velocity,
-                        it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
-                    problem.AddResidualBlock(f_td, loss_function, para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Feature[feature_index], para_Td[0]);
-            }
-            else
-            {
-                ProjectionFactor *f = new ProjectionFactor(pts_i, pts_j);
-                problem.AddResidualBlock(f, loss_function, para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Feature[feature_index]);
+            if(STEREO && it_per_frame.is_stereo)
+            {                
+                Vector3d pts_j_right = it_per_frame.pointRight;
+                if(imu_i != imu_j)
+                {
+                    ProjectionTwoFrameTwoCamFactor *f = new ProjectionTwoFrameTwoCamFactor(
+                                pts_i, 
+                                pts_j_right, 
+                                it_per_id.feature_per_frame[0].velocity, 
+                                it_per_frame.velocityRight,
+                                it_per_id.feature_per_frame[0].cur_td, 
+                                it_per_frame.cur_td);
+                    problem.AddResidualBlock(
+                                f, 
+                                loss_function, 
+                                para_Pose[imu_i], 
+                                para_Pose[imu_j], 
+                                para_Ex_Pose[0], 
+                                para_Ex_Pose[1], 
+                                para_Feature[feature_index], 
+                                para_Td[0]);
+                }
+                else
+                {
+                    ProjectionOneFrameTwoCamFactor *f = new ProjectionOneFrameTwoCamFactor(
+                                pts_i, 
+                                pts_j_right, 
+                                it_per_id.feature_per_frame[0].velocity, 
+                                it_per_frame.velocityRight,
+                                it_per_id.feature_per_frame[0].cur_td, 
+                                it_per_frame.cur_td);
+                    problem.AddResidualBlock(
+                                f, 
+                                loss_function, 
+                                para_Ex_Pose[0], 
+                                para_Ex_Pose[1], 
+                                para_Feature[feature_index], 
+                                para_Td[0]);
+                }
+               
             }
             f_m_cnt++;
         }
@@ -1171,29 +1214,61 @@ void Estimator::optimization()
                 for (auto &it_per_frame : it_per_id.feature_per_frame)
                 {
                     imu_j++;
-                    if (imu_i == imu_j)
-                        continue;
-
-                    Vector3d pts_j = it_per_frame.point;
-                    if (ESTIMATE_TD)
+                    if(imu_i != imu_j)
                     {
-                        ProjectionTdFactor *f_td = new ProjectionTdFactor(pts_i, pts_j, 
-                            it_per_id.feature_per_frame[0].velocity, it_per_frame.velocity,
-                            it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
-                        ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(f_td, 
-                            loss_function, vector<double *>{para_Pose[imu_i], para_Pose[imu_j], 
-                                para_Ex_Pose[0], para_Feature[feature_index], para_Td[0]},
-                            vector<int>{0, 3});
+                        Vector3d pts_j = it_per_frame.point;
+                        ProjectionTwoFrameOneCamFactor *f_td = new ProjectionTwoFrameOneCamFactor(
+                                    pts_i, 
+                                    pts_j, 
+                                    it_per_id.feature_per_frame[0].velocity, 
+                                    it_per_frame.velocity,
+                                    it_per_id.feature_per_frame[0].cur_td, 
+                                    it_per_frame.cur_td);
+                        ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
+                                    f_td, 
+                                    loss_function,
+                                    vector<double *>{para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], 
+                                                    para_Feature[feature_index], para_Td[0]},
+                                    vector<int>{0, 3});
                         marginalization_info->addResidualBlockInfo(residual_block_info);
                     }
-                    else
+                    if(STEREO && it_per_frame.is_stereo)
                     {
-                        ProjectionFactor *f = new ProjectionFactor(pts_i, pts_j);
-                        ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(f, 
-                            loss_function, vector<double *>{para_Pose[imu_i], para_Pose[imu_j], 
-                                para_Ex_Pose[0], para_Feature[feature_index]},
-                            vector<int>{0, 3});
-                        marginalization_info->addResidualBlockInfo(residual_block_info);
+                        Vector3d pts_j_right = it_per_frame.pointRight;
+                        if(imu_i != imu_j)
+                        {
+                            ProjectionTwoFrameTwoCamFactor *f = new ProjectionTwoFrameTwoCamFactor(
+                                        pts_i, 
+                                        pts_j_right, 
+                                        it_per_id.feature_per_frame[0].velocity, 
+                                        it_per_frame.velocityRight,
+                                        it_per_id.feature_per_frame[0].cur_td, 
+                                        it_per_frame.cur_td);
+                            ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
+                                        f, 
+                                        loss_function,
+                                        vector<double *>{para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], 
+                                                        para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]},
+                                        vector<int>{0, 4});
+                            marginalization_info->addResidualBlockInfo(residual_block_info);
+                        }
+                        else
+                        {
+                            ProjectionOneFrameTwoCamFactor *f = new ProjectionOneFrameTwoCamFactor(
+                                        pts_i, 
+                                        pts_j_right, 
+                                        it_per_id.feature_per_frame[0].velocity, 
+                                        it_per_frame.velocityRight,
+                                        it_per_id.feature_per_frame[0].cur_td, 
+                                        it_per_frame.cur_td);
+                            ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
+                                        f, 
+                                        loss_function,
+                                        vector<double *>{para_Ex_Pose[0], para_Ex_Pose[1], 
+                                                        para_Feature[feature_index], para_Td[0]},
+                                        vector<int>{2});
+                            marginalization_info->addResidualBlockInfo(residual_block_info);
+                        }
                     }
                 }
             }
@@ -1218,10 +1293,7 @@ void Estimator::optimization()
         }
         for (int i = 0; i < NUM_OF_CAM; i++)
             addr_shift[reinterpret_cast<long>(para_Ex_Pose[i])] = para_Ex_Pose[i];
-        if (ESTIMATE_TD)
-        {
-            addr_shift[reinterpret_cast<long>(para_Td[0])] = para_Td[0];
-        }
+        addr_shift[reinterpret_cast<long>(para_Td[0])] = para_Td[0];
         addr_shift[reinterpret_cast<long>(para_yaw_enu_local)] = para_yaw_enu_local;
         addr_shift[reinterpret_cast<long>(para_anc_ecef)] = para_anc_ecef;
         vector<double *> parameter_blocks = marginalization_info->getParameterBlocks(addr_shift);
@@ -1250,10 +1322,13 @@ void Estimator::optimization()
                         drop_set.push_back(i);
                 }
                 // construct new marginlization_factor
-                MarginalizationFactor *marginalization_factor = new MarginalizationFactor(last_marginalization_info);
-                ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(marginalization_factor, NULL,
-                                                                               last_marginalization_parameter_blocks,
-                                                                               drop_set);
+                MarginalizationFactor *marginalization_factor = new MarginalizationFactor(
+                            last_marginalization_info);
+                ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
+                            marginalization_factor, 
+                            NULL,
+                            last_marginalization_parameter_blocks,
+                            drop_set);
 
                 marginalization_info->addResidualBlockInfo(residual_block_info);
             }
@@ -1292,10 +1367,7 @@ void Estimator::optimization()
             }
             for (int i = 0; i < NUM_OF_CAM; i++)
                 addr_shift[reinterpret_cast<long>(para_Ex_Pose[i])] = para_Ex_Pose[i];
-            if (ESTIMATE_TD)
-            {
-                addr_shift[reinterpret_cast<long>(para_Td[0])] = para_Td[0];
-            }
+            addr_shift[reinterpret_cast<long>(para_Td[0])] = para_Td[0];
             addr_shift[reinterpret_cast<long>(para_yaw_enu_local)] = para_yaw_enu_local;
             addr_shift[reinterpret_cast<long>(para_anc_ecef)] = para_anc_ecef;
             vector<double *> parameter_blocks = marginalization_info->getParameterBlocks(addr_shift);
