@@ -16,7 +16,7 @@ void Estimator::setParameter()
         ric[i] = RIC[i];
     }
     f_manager.setRic(ric);
-    ProjectionFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
+    ProjectionTwoFrameOneCamFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
 }
 
 void Estimator::clearState()
@@ -1011,52 +1011,8 @@ void Estimator::optimization()
             if (imu_i != imu_j)
             {
                 Vector3d pts_j = it_per_frame.point;
-                ProjectionTwoFrameOneCamFactor *f_td = new ProjectionTwoFrameOneCamFactor(
-                            pts_i, 
-                            pts_j, 
-                            it_per_id.feature_per_frame[0].velocity, 
-                            it_per_frame.velocity);
-                problem.AddResidualBlock(
-                            f_td, 
-                            loss_function, 
-                            para_Pose[imu_i], 
-                            para_Pose[imu_j], 
-                            para_Ex_Pose[0], 
-                            para_Feature[feature_index]);
-            }
-            if(STEREO && it_per_frame.is_stereo)
-            {                
-                Vector3d pts_j_right = it_per_frame.pointRight;
-                if(imu_i != imu_j)
-                {
-                    ProjectionTwoFrameTwoCamFactor *f = new ProjectionTwoFrameTwoCamFactor(
-                                pts_i, 
-                                pts_j_right, 
-                                it_per_id.feature_per_frame[0].velocity, 
-                                it_per_frame.velocityRight);
-                    problem.AddResidualBlock(
-                                f, 
-                                loss_function, 
-                                para_Pose[imu_i], 
-                                para_Pose[imu_j], 
-                                para_Ex_Pose[0], 
-                                para_Ex_Pose[1], 
-                                para_Feature[feature_index]);
-                }
-                else
-                {
-                    ProjectionOneFrameTwoCamFactor *f = new ProjectionOneFrameTwoCamFactor(
-                                pts_i, 
-                                pts_j_right, 
-                                it_per_id.feature_per_frame[0].velocity, 
-                                it_per_frame.velocityRight);
-                    problem.AddResidualBlock(
-                                f, 
-                                loss_function, 
-                                para_Ex_Pose[0], 
-                                para_Ex_Pose[1], 
-                                para_Feature[feature_index]);
-                }
+                ProjectionTwoFrameOneCamFactor *f = new ProjectionTwoFrameOneCamFactor(pts_i, pts_j);
+                problem.AddResidualBlock(f, loss_function, para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Feature[feature_index]);
                
             }
             f_m_cnt++;
@@ -1197,52 +1153,12 @@ void Estimator::optimization()
                     if(imu_i != imu_j)
                     {
                         Vector3d pts_j = it_per_frame.point;
-                        ProjectionTwoFrameOneCamFactor *f_td = new ProjectionTwoFrameOneCamFactor(
-                                    pts_i, 
-                                    pts_j, 
-                                    it_per_id.feature_per_frame[0].velocity, 
-                                    it_per_frame.velocity);
-                        ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
-                                    f_td, 
-                                    loss_function,
-                                    vector<double *>{para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], 
-                                                    para_Feature[feature_index]},
-                                    vector<int>{0, 3});
+                        ProjectionTwoFrameOneCamFactor *f = new ProjectionTwoFrameOneCamFactor(pts_i, pts_j);
+                        ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(f, 
+                            loss_function, vector<double *>{para_Pose[imu_i], para_Pose[imu_j], 
+                                para_Ex_Pose[0], para_Feature[feature_index]},
+                            vector<int>{0, 3});
                         marginalization_info->addResidualBlockInfo(residual_block_info);
-                    }
-                    if(STEREO && it_per_frame.is_stereo)
-                    {
-                        Vector3d pts_j_right = it_per_frame.pointRight;
-                        if(imu_i != imu_j)
-                        {
-                            ProjectionTwoFrameTwoCamFactor *f = new ProjectionTwoFrameTwoCamFactor(
-                                        pts_i, 
-                                        pts_j_right, 
-                                        it_per_id.feature_per_frame[0].velocity, 
-                                        it_per_frame.velocityRight);
-                            ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
-                                        f, 
-                                        loss_function,
-                                        vector<double *>{para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], 
-                                                        para_Ex_Pose[1], para_Feature[feature_index]},
-                                        vector<int>{0, 4});
-                            marginalization_info->addResidualBlockInfo(residual_block_info);
-                        }
-                        else
-                        {
-                            ProjectionOneFrameTwoCamFactor *f = new ProjectionOneFrameTwoCamFactor(
-                                        pts_i, 
-                                        pts_j_right, 
-                                        it_per_id.feature_per_frame[0].velocity, 
-                                        it_per_frame.velocityRight);
-                            ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
-                                        f, 
-                                        loss_function,
-                                        vector<double *>{para_Ex_Pose[0], para_Ex_Pose[1], 
-                                                        para_Feature[feature_index]},
-                                        vector<int>{2});
-                            marginalization_info->addResidualBlockInfo(residual_block_info);
-                        }
                     }
                 }
             }
