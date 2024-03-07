@@ -42,7 +42,11 @@ int FeatureManager::getFeatureCount()
 }
 
 
-bool FeatureManager::addFeatureCheckParallax(int frame_count, const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &image, double td)
+bool FeatureManager::addFeatureCheckParallax
+(
+    int frame_count, 
+    const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &image
+)
 {
     ROS_DEBUG("input feature: %d", (int)image.size());
     ROS_DEBUG("num of feature: %d", getFeatureCount());
@@ -51,7 +55,7 @@ bool FeatureManager::addFeatureCheckParallax(int frame_count, const map<int, vec
     last_track_num = 0;
     for (auto &id_pts : image)
     {
-        FeaturePerFrame f_per_fra(id_pts.second[0].second, td);
+        FeaturePerFrame f_per_fra(id_pts.second[0].second);
 
         int feature_id = id_pts.first;
         auto it = find_if(feature.begin(), feature.end(), [feature_id](const FeaturePerId &it)
@@ -211,7 +215,7 @@ void FeatureManager::triangulate(Vector3d Ps[], Vector3d tic[], Matrix3d ric[])
             continue;
         int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
 
-        ROS_ASSERT(NUM_OF_CAM == 1);
+        // ROS_ASSERT(NUM_OF_CAM == 1);
         Eigen::MatrixXd svd_A(2 * it_per_id.feature_per_frame.size(), 4);
         int svd_idx = 0;
 

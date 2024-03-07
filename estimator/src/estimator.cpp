@@ -17,8 +17,6 @@ void Estimator::setParameter()
     }
     f_manager.setRic(ric);
     ProjectionFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
-    ProjectionTdFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
-    td = TD;
 }
 
 void Estimator::clearState()
@@ -62,7 +60,6 @@ void Estimator::clearState()
     solver_flag = INITIAL;
     initial_timestamp = 0;
     all_image_frame.clear();
-    td = TD;
 
     gnss_ready = false;
     anc_ecef.setZero();
@@ -136,7 +133,7 @@ void Estimator::processImage
 )
 {
     ROS_DEBUG("new image coming ---------------- frame count %d --------------", frame_count);
-    if (f_manager.addFeatureCheckParallax(frame_count, image, td))
+    if (f_manager.addFeatureCheckParallax(frame_count, image))
         marginalization_flag = MARGIN_OLD;
     else
         marginalization_flag = MARGIN_SECOND_NEW;
@@ -765,8 +762,6 @@ void Estimator::vector2double()
     VectorXd dep = f_manager.getDepthVector();
     for (int i = 0; i < f_manager.getFeatureCount(); i++)
         para_Feature[i][0] = dep(i);
-    if (ESTIMATE_TD)
-        para_Td[0][0] = td;
     
     para_yaw_enu_local[0] = yaw_enu_local;
     for (uint32_t k = 0; k < 3; ++k)
@@ -801,8 +796,6 @@ void Estimator::double2vector()
     for (int i = 0; i < f_manager.getFeatureCount(); i++)
         dep(i) = para_Feature[i][0];
     f_manager.setDepth(dep);
-    if (ESTIMATE_TD)
-        td = para_Td[0][0];
     
     if (gnss_ready)
     {
@@ -885,10 +878,6 @@ void Estimator::optimization()
         else
             ROS_DEBUG("estimate extinsic param");
     }
-
-    problem.AddParameterBlock(para_Td[0], 1);
-    if (!ESTIMATE_TD || Vs[0].norm() < 0.2)
-        problem.SetParameterBlockConstant(para_Td[0]);
 
     if (gnss_ready)
     {
@@ -1026,17 +1015,14 @@ void Estimator::optimization()
                             pts_i, 
                             pts_j, 
                             it_per_id.feature_per_frame[0].velocity, 
-                            it_per_frame.velocity,
-                            it_per_id.feature_per_frame[0].cur_td, 
-                            it_per_frame.cur_td);
+                            it_per_frame.velocity);
                 problem.AddResidualBlock(
                             f_td, 
                             loss_function, 
                             para_Pose[imu_i], 
                             para_Pose[imu_j], 
                             para_Ex_Pose[0], 
-                            para_Feature[feature_index], 
-                            para_Td[0]);
+                            para_Feature[feature_index]);
             }
             if(STEREO && it_per_frame.is_stereo)
             {                
@@ -1047,9 +1033,7 @@ void Estimator::optimization()
                                 pts_i, 
                                 pts_j_right, 
                                 it_per_id.feature_per_frame[0].velocity, 
-                                it_per_frame.velocityRight,
-                                it_per_id.feature_per_frame[0].cur_td, 
-                                it_per_frame.cur_td);
+                                it_per_frame.velocityRight);
                     problem.AddResidualBlock(
                                 f, 
                                 loss_function, 
@@ -1057,8 +1041,7 @@ void Estimator::optimization()
                                 para_Pose[imu_j], 
                                 para_Ex_Pose[0], 
                                 para_Ex_Pose[1], 
-                                para_Feature[feature_index], 
-                                para_Td[0]);
+                                para_Feature[feature_index]);
                 }
                 else
                 {
@@ -1066,16 +1049,13 @@ void Estimator::optimization()
                                 pts_i, 
                                 pts_j_right, 
                                 it_per_id.feature_per_frame[0].velocity, 
-                                it_per_frame.velocityRight,
-                                it_per_id.feature_per_frame[0].cur_td, 
-                                it_per_frame.cur_td);
+                                it_per_frame.velocityRight);
                     problem.AddResidualBlock(
                                 f, 
                                 loss_function, 
                                 para_Ex_Pose[0], 
                                 para_Ex_Pose[1], 
-                                para_Feature[feature_index], 
-                                para_Td[0]);
+                                para_Feature[feature_index]);
                 }
                
             }
@@ -1221,14 +1201,12 @@ void Estimator::optimization()
                                     pts_i, 
                                     pts_j, 
                                     it_per_id.feature_per_frame[0].velocity, 
-                                    it_per_frame.velocity,
-                                    it_per_id.feature_per_frame[0].cur_td, 
-                                    it_per_frame.cur_td);
+                                    it_per_frame.velocity);
                         ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
                                     f_td, 
                                     loss_function,
                                     vector<double *>{para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], 
-                                                    para_Feature[feature_index], para_Td[0]},
+                                                    para_Feature[feature_index]},
                                     vector<int>{0, 3});
                         marginalization_info->addResidualBlockInfo(residual_block_info);
                     }
@@ -1241,14 +1219,12 @@ void Estimator::optimization()
                                         pts_i, 
                                         pts_j_right, 
                                         it_per_id.feature_per_frame[0].velocity, 
-                                        it_per_frame.velocityRight,
-                                        it_per_id.feature_per_frame[0].cur_td, 
-                                        it_per_frame.cur_td);
+                                        it_per_frame.velocityRight);
                             ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
                                         f, 
                                         loss_function,
                                         vector<double *>{para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], 
-                                                        para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]},
+                                                        para_Ex_Pose[1], para_Feature[feature_index]},
                                         vector<int>{0, 4});
                             marginalization_info->addResidualBlockInfo(residual_block_info);
                         }
@@ -1258,14 +1234,12 @@ void Estimator::optimization()
                                         pts_i, 
                                         pts_j_right, 
                                         it_per_id.feature_per_frame[0].velocity, 
-                                        it_per_frame.velocityRight,
-                                        it_per_id.feature_per_frame[0].cur_td, 
-                                        it_per_frame.cur_td);
+                                        it_per_frame.velocityRight);
                             ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
                                         f, 
                                         loss_function,
                                         vector<double *>{para_Ex_Pose[0], para_Ex_Pose[1], 
-                                                        para_Feature[feature_index], para_Td[0]},
+                                                        para_Feature[feature_index]},
                                         vector<int>{2});
                             marginalization_info->addResidualBlockInfo(residual_block_info);
                         }
@@ -1293,7 +1267,6 @@ void Estimator::optimization()
         }
         for (int i = 0; i < NUM_OF_CAM; i++)
             addr_shift[reinterpret_cast<long>(para_Ex_Pose[i])] = para_Ex_Pose[i];
-        addr_shift[reinterpret_cast<long>(para_Td[0])] = para_Td[0];
         addr_shift[reinterpret_cast<long>(para_yaw_enu_local)] = para_yaw_enu_local;
         addr_shift[reinterpret_cast<long>(para_anc_ecef)] = para_anc_ecef;
         vector<double *> parameter_blocks = marginalization_info->getParameterBlocks(addr_shift);
@@ -1367,7 +1340,6 @@ void Estimator::optimization()
             }
             for (int i = 0; i < NUM_OF_CAM; i++)
                 addr_shift[reinterpret_cast<long>(para_Ex_Pose[i])] = para_Ex_Pose[i];
-            addr_shift[reinterpret_cast<long>(para_Td[0])] = para_Td[0];
             addr_shift[reinterpret_cast<long>(para_yaw_enu_local)] = para_yaw_enu_local;
             addr_shift[reinterpret_cast<long>(para_anc_ecef)] = para_anc_ecef;
             vector<double *> parameter_blocks = marginalization_info->getParameterBlocks(addr_shift);

@@ -16,13 +16,11 @@ double BIAS_GYR_THRESHOLD;
 double SOLVER_TIME;
 int NUM_ITERATIONS;
 int ESTIMATE_EXTRINSIC;
-int ESTIMATE_TD;
 std::string EX_CALIB_RESULT_PATH;
 std::string VINS_RESULT_PATH;
 std::string FACTOR_GRAPH_RESULT_PATH;
 std::string IMU_TOPIC;
 double ROW, COL;
-double TD;
 
 bool GNSS_ENABLE;
 std::string GNSS_EPHEM_TOPIC;
@@ -145,13 +143,6 @@ void readParameters(ros::NodeHandle &n)
     INIT_DEPTH = 5.0;
     BIAS_ACC_THRESHOLD = 0.1;
     BIAS_GYR_THRESHOLD = 0.1;
-
-    TD = fsSettings["td"];
-    ESTIMATE_TD = fsSettings["estimate_td"];
-    if (ESTIMATE_TD)
-        ROS_INFO_STREAM("Unsynchronized sensors, online estimate time offset, initial td: " << TD);
-    else
-        ROS_INFO_STREAM("Synchronized sensors, fix time offset: " << TD);
 
     int gnss_enable_value = fsSettings["gnss_enable"];
     GNSS_ENABLE = (gnss_enable_value == 0 ? false : true);

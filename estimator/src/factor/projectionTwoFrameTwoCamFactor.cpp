@@ -8,14 +8,10 @@ ProjectionTwoFrameTwoCamFactor::ProjectionTwoFrameTwoCamFactor
     const Eigen::Vector3d &_pts_i, 
     const Eigen::Vector3d &_pts_j,
     const Eigen::Vector2d &_velocity_i, 
-    const Eigen::Vector2d &_velocity_j,
-    const double _td_i, 
-    const double _td_j
+    const Eigen::Vector2d &_velocity_j
 ): 
 pts_i(_pts_i), 
-pts_j(_pts_j), 
-td_i(_td_i), 
-td_j(_td_j)
+pts_j(_pts_j)
 {
     velocity_i.x() = _velocity_i.x();
     velocity_i.y() = _velocity_i.y();
@@ -59,13 +55,7 @@ bool ProjectionTwoFrameTwoCamFactor::Evaluate
 
     double inv_dep_i = parameters[4][0];
 
-    double td = parameters[5][0];
-
-    Eigen::Vector3d pts_i_td, pts_j_td;
-    pts_i_td = pts_i - (td - td_i) * velocity_i;
-    pts_j_td = pts_j - (td - td_j) * velocity_j;
-
-    Eigen::Vector3d pts_camera_i = pts_i_td / inv_dep_i;
+    Eigen::Vector3d pts_camera_i = pts_i / inv_dep_i;
     Eigen::Vector3d pts_imu_i = qic * pts_camera_i + tic;
     Eigen::Vector3d pts_w = Qi * pts_imu_i + Pi;
     Eigen::Vector3d pts_imu_j = Qj.inverse() * (pts_w - Pj);
@@ -73,10 +63,10 @@ bool ProjectionTwoFrameTwoCamFactor::Evaluate
     Eigen::Map<Eigen::Vector2d> residual(residuals);
 
 #ifdef UNIT_SPHERE_ERROR 
-    residual =  tangent_base * (pts_camera_j.normalized() - pts_j_td.normalized());
+    residual =  tangent_base * (pts_camera_j.normalized() - pts_j.normalized());
 #else
     double dep_j = pts_camera_j.z();
-    residual = (pts_camera_j / dep_j).head<2>() - pts_j_td.head<2>();
+    residual = (pts_camera_j / dep_j).head<2>() - pts_j.head<2>();
 #endif
 
     residual = sqrt_info * residual;
@@ -150,16 +140,10 @@ bool ProjectionTwoFrameTwoCamFactor::Evaluate
         {
             Eigen::Map<Eigen::Vector2d> jacobian_feature(jacobians[4]);
 #if 1
-            jacobian_feature = reduce * ric2.transpose() * Rj.transpose() * Ri * ric * pts_i_td * -1.0 / (inv_dep_i * inv_dep_i);
+            jacobian_feature = reduce * ric2.transpose() * Rj.transpose() * Ri * ric * pts_i * -1.0 / (inv_dep_i * inv_dep_i);
 #else
             jacobian_feature = reduce * ric.transpose() * Rj.transpose() * Ri * ric * pts_i;
 #endif
-        }
-        if (jacobians[5])
-        {
-            Eigen::Map<Eigen::Vector2d> jacobian_td(jacobians[5]);
-            jacobian_td = reduce * ric2.transpose() * Rj.transpose() * Ri * ric * velocity_i / inv_dep_i * -1.0  +
-                          sqrt_info * velocity_j.head(2);
         }
     }
     sum_t += tic_toc.toc();
@@ -211,13 +195,7 @@ void ProjectionTwoFrameTwoCamFactor::check(double **parameters)
 
     double inv_dep_i = parameters[4][0];
 
-    double td = parameters[5][0];
-
-    Eigen::Vector3d pts_i_td, pts_j_td;
-    pts_i_td = pts_i - (td - td_i) * velocity_i;
-    pts_j_td = pts_j - (td - td_j) * velocity_j;
-
-    Eigen::Vector3d pts_camera_i = pts_i_td / inv_dep_i;
+    Eigen::Vector3d pts_camera_i = pts_i / inv_dep_i;
     Eigen::Vector3d pts_imu_i = qic * pts_camera_i + tic;
     Eigen::Vector3d pts_w = Qi * pts_imu_i + Pi;
     Eigen::Vector3d pts_imu_j = Qj.inverse() * (pts_w - Pj);
@@ -226,10 +204,10 @@ void ProjectionTwoFrameTwoCamFactor::check(double **parameters)
 
     Eigen::Vector2d residual;
 #ifdef UNIT_SPHERE_ERROR 
-    residual =  tangent_base * (pts_camera_j.normalized() - pts_j_td.normalized());
+    residual =  tangent_base * (pts_camera_j.normalized() - pts_j.normalized());
 #else
     double dep_j = pts_camera_j.z();
-    residual = (pts_camera_j / dep_j).head<2>() - pts_j_td.head<2>();
+    residual = (pts_camera_j / dep_j).head<2>() - pts_j.head<2>();
 #endif
     residual = sqrt_info * residual;
 
@@ -254,8 +232,6 @@ void ProjectionTwoFrameTwoCamFactor::check(double **parameters)
 
         double inv_dep_i = parameters[4][0];
 
-        double td = parameters[5][0];
-
         int a = k / 3, b = k % 3;
         Eigen::Vector3d delta = Eigen::Vector3d(b == 0, b == 1, b == 2) * eps;
 
@@ -279,15 +255,9 @@ void ProjectionTwoFrameTwoCamFactor::check(double **parameters)
         {
             if(b == 0)
                 inv_dep_i += delta.x();
-            else
-                td += delta.y();
         }
 
-        Eigen::Vector3d pts_i_td, pts_j_td;
-        pts_i_td = pts_i - (td - td_i) * velocity_i;
-        pts_j_td = pts_j - (td - td_j) * velocity_j;
-
-        Eigen::Vector3d pts_camera_i = pts_i_td / inv_dep_i;
+        Eigen::Vector3d pts_camera_i = pts_i / inv_dep_i;
         Eigen::Vector3d pts_imu_i = qic * pts_camera_i + tic;
         Eigen::Vector3d pts_w = Qi * pts_imu_i + Pi;
         Eigen::Vector3d pts_imu_j = Qj.inverse() * (pts_w - Pj);
@@ -295,10 +265,10 @@ void ProjectionTwoFrameTwoCamFactor::check(double **parameters)
 
         Eigen::Vector2d tmp_residual;
 #ifdef UNIT_SPHERE_ERROR 
-        tmp_residual =  tangent_base * (pts_camera_j.normalized() - pts_j_td.normalized());
+        tmp_residual =  tangent_base * (pts_camera_j.normalized() - pts_j.normalized());
 #else
         double dep_j = pts_camera_j.z();
-        tmp_residual = (pts_camera_j / dep_j).head<2>() - pts_j_td.head<2>();
+        tmp_residual = (pts_camera_j / dep_j).head<2>() - pts_j.head<2>();
 #endif
         tmp_residual = sqrt_info * tmp_residual;
         num_jacobian.col(k) = (tmp_residual - residual) / eps;

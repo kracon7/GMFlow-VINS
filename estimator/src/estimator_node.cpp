@@ -170,7 +170,7 @@ getMeasurements
     img_msg = feature_buf.front();
     feature_buf.pop();
 
-    while (imu_buf.front()->header.stamp.toSec() < img_msg->header.stamp.toSec() + estimator_ptr->td)
+    while (imu_buf.front()->header.stamp.toSec() < img_msg->header.stamp.toSec())
     {
         imu_msg.emplace_back(imu_buf.front());
         imu_buf.pop();
@@ -350,7 +350,7 @@ void process()
         for (auto &imu_data : imu_msg)
         {
             double t = imu_data->header.stamp.toSec();
-            double img_t = img_msg->header.stamp.toSec() + estimator_ptr->td;
+            double img_t = img_msg->header.stamp.toSec();
             if (t <= img_t)
             { 
                 if (current_time < 0)
