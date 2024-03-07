@@ -1,8 +1,9 @@
 #include "parameters.h"
 
-std::string IMAGE_TOPIC;
+std::string IMAGE_TOPIC_0;
+std::string IMAGE_TOPIC_1;
 std::string IMU_TOPIC;
-std::vector<std::string> CAM_NAMES;
+std::vector<std::string> CAM_INTRINSICS;
 std::string FISHEYE_MASK;
 int MAX_CNT;
 int MIN_DIST;
@@ -10,12 +11,13 @@ int WINDOW_SIZE;
 int FREQ;
 double F_THRESHOLD;
 int SHOW_TRACK;
-int STEREO_TRACK;
+int SHOW_STEREO;
 int EQUALIZE;
 int ROW;
 int COL;
 int FOCAL_LENGTH;
 int FISHEYE;
+int FLOW_BACK;
 bool PUB_THIS_FRAME;
 
 template <typename T>
@@ -45,7 +47,8 @@ void readParameters(ros::NodeHandle &n)
     }
     std::string GVINS_FOLDER_PATH = readParam<std::string>(n, "gvins_folder");
 
-    fsSettings["image_topic"] >> IMAGE_TOPIC;
+    fsSettings["image_topic_0"] >> IMAGE_TOPIC_0;
+    fsSettings["image_topic_1"] >> IMAGE_TOPIC_1;
     fsSettings["imu_topic"] >> IMU_TOPIC;
     MAX_CNT = fsSettings["max_cnt"];
     MIN_DIST = fsSettings["min_dist"];
@@ -54,14 +57,25 @@ void readParameters(ros::NodeHandle &n)
     FREQ = fsSettings["freq"];
     F_THRESHOLD = fsSettings["F_threshold"];
     SHOW_TRACK = fsSettings["show_track"];
+    SHOW_STEREO = fsSettings["show_stereo"];
     EQUALIZE = fsSettings["equalize"];
     FISHEYE = fsSettings["fisheye"];
     if (FISHEYE == 1)
         FISHEYE_MASK = GVINS_FOLDER_PATH + "config/fisheye_mask.jpg";
-    CAM_NAMES.push_back(config_file);
+    FLOW_BACK = fsSettings["flow_back"];
+
+    // Load camera instrinsic parameters
+    int pn = config_file.find_last_of('/');
+    std::string configPath = config_file.substr(0, pn);
+    std::string cam0Calib, cam1Calib;
+    fsSettings["cam0_calib"] >> cam0Calib;
+    fsSettings["cam1_calib"] >> cam1Calib;
+    std::string cam0Path = configPath + "/" + cam0Calib;
+    std::string cam1Path = configPath + "/" + cam1Calib;
+    CAM_INTRINSICS.push_back(cam0Path);
+    CAM_INTRINSICS.push_back(cam1Path);
 
     WINDOW_SIZE = 20;
-    STEREO_TRACK = false;
     FOCAL_LENGTH = 460;
     PUB_THIS_FRAME = false;
 
@@ -69,6 +83,4 @@ void readParameters(ros::NodeHandle &n)
         FREQ = 100;
 
     fsSettings.release();
-
-
 }

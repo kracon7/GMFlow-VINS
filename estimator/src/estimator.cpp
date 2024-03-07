@@ -129,10 +129,13 @@ void Estimator::processIMU(double dt, const Vector3d &linear_acceleration, const
     gyr_0 = angular_velocity;
 }
 
-void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &image, const std_msgs::Header &header)
+void Estimator::processImage
+(
+    const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &image, 
+    const std_msgs::Header &header
+)
 {
-    ROS_DEBUG("new image coming ------------------------------------------");
-    ROS_DEBUG("Adding feature points %lu", image.size());
+    ROS_DEBUG("new image coming ---------------- frame count %d --------------", frame_count);
     if (f_manager.addFeatureCheckParallax(frame_count, image, td))
         marginalization_flag = MARGIN_OLD;
     else
@@ -706,7 +709,7 @@ void Estimator::solveOdometry()
     {
         TicToc t_tri;
         f_manager.triangulate(Ps, tic, ric);
-        ROS_DEBUG("triangulation costs %f", t_tri.toc());
+        ROS_DEBUG("** EST solveOdo ** triangulation costs %f", t_tri.toc());
         optimization();
         if (GNSS_ENABLE)
         {

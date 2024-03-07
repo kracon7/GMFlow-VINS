@@ -15,13 +15,8 @@ find_package(catkin REQUIRED COMPONENTS
     rosbag
     message_generation
     gnss_comm
+    gvins_msgs
 )
-
-add_message_files(
-  DIRECTORY msg
-  FILES LocalSensorExternalTrigger.msg
-)
-generate_messages(DEPENDENCIES std_msgs)
 
 find_package(OpenCV REQUIRED)
 
@@ -45,6 +40,9 @@ add_executable(${PROJECT_NAME}
     src/feature_manager.cpp
     src/factor/pose_local_parameterization.cpp
     src/factor/projection_factor.cpp
+    src/factor/projectionOneFrameTwoCamFactor.cpp
+    src/factor/projectionTwoFrameOneCamFactor.cpp
+    src/factor/projectionTwoFrameTwoCamFactor.cpp
     src/factor/projection_td_factor.cpp
     src/factor/marginalization_factor.cpp
     src/factor/gnss_psr_dopp_factor.cpp

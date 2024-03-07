@@ -2,26 +2,12 @@
 
 #common parameters
 imu_topic: "/imu0"
-image_topic: "/cam1/image_raw"
+image_topic_0: "/cam1/image_raw"
+image_topic_1: "/cam0/image_raw"
 output_dir: "~/output/"
 
-#camera calibration 
-model_type: MEI
-camera_name: camera
-image_width: 752
-image_height: 480
-mirror_parameters:
-   xi: 1.8476540167437447
-distortion_parameters:
-   k1: -0.06597811223735722
-   k2: 0.8559479340704287
-   p1: -0.0006445829733139821
-   p2: 0.0015137487236065916
-projection_parameters:
-   gamma1: 1338.1845333957547
-   gamma2: 1340.1190112672946
-   u0: 378.7909740462579
-   v0: 217.69105287172025
+cam0_calib: "left.yaml"
+cam1_calib: "right.yaml"
 
 gnss_enable: 1
 gnss_meas_topic: "/ublox_driver/range_meas"           # GNSS raw measurement topic
@@ -51,29 +37,36 @@ estimate_extrinsic: 0   # 0  Have an accurate extrinsic parameters. We will trus
                         # 1  Have an initial guess about extrinsic parameters. We will optimize around your initial guess.
                         # 2  Don't know anything about extrinsic parameters. You don't need to give R,T. We will try to calibrate it. Do some rotation movement at beginning.                        
 #If you choose 0 or 1, you should write down the following matrix.
-#Rotation from camera frame to imu frame, imu^R_cam
-extrinsicRotation: !!opencv-matrix
-   rows: 3
-   cols: 3
+body_T_cam0: !!opencv-matrix
+   rows: 4
+   cols: 4
    dt: d
-   data: [0.9999890386957373, -0.0043227774403168, 0.0017989117755288, 
-          0.0043276579084841, 0.9999869417854389, -0.0027180205355500, 
-         -0.0017871388870994, 0.0027257758172719, 0.9999946881262878]
-#Translation from camera frame to imu frame, imu^T_cam
-extrinsicTranslation: !!opencv-matrix
-   rows: 3
-   cols: 1
+   data: [ 0.9999890386957373, -0.0043227774403168, 0.0017989117755288, -0.0759472920952561,
+          0.0043276579084841, 0.9999869417854389, -0.0027180205355500, -0.0039320527565750,
+         -0.0017871388870994, 0.0027257758172719, 0.9999946881262878, -0.0016395029500217,
+         0, 0, 0, 1]
+
+body_T_cam1: !!opencv-matrix
+   rows: 4
+   cols: 4
    dt: d
-   data: [-0.0759472920952561, -0.0039320527565750, -0.0016395029500217]
+   data: [ -1.0021770212322867e-03, 3.6313480322730518e-04,
+       9.9999943188700535e-01, 1.5285779565991807e-02,
+       -9.9999216342926500e-01, -3.8303422615924010e-03,
+       -1.0007788055728661e-03, -5.2435791444330505e-02,
+       3.8299766679101843e-03, -9.9999259827824449e-01,
+       3.6697063849344680e-04, 8.6931302450199057e-03, 0., 0., 0., 1. ]
 
 #feature traker paprameters
 max_cnt: 150            # max feature number in feature tracking
 min_dist: 30            # min distance between two features 
 freq: 0                # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
 F_threshold: 1.0        # ransac threshold (pixel)
-show_track: 1           # publish tracking image as topic
+show_track: 0           # publish tracking image as topic
+show_stereo: 1           # publish stereo image matching as topic
 equalize: 1             # if image is too dark or light, trun on equalize to find enough features
 fisheye: 0              # if using fisheye, trun on it. A circle mask will be loaded to remove edge noisy points
+flow_back: 1            # perform forward and backward optical flow to improve feature tracking accuracy
 
 #optimization parameters
 max_solver_time: 0.04  # max solver itration time (ms), to guarantee real time

@@ -24,6 +24,9 @@
 #include "factor/gnss_ddt_smooth_factor.hpp"
 #include "factor/pos_vel_factor.hpp"
 #include "factor/pose_anchor_factor.h"
+#include "factor/projectionOneFrameTwoCamFactor.h"
+#include "factor/projectionTwoFrameTwoCamFactor.h"
+#include "factor/projectionTwoFrameOneCamFactor.h"
 
 #include <opencv2/core/eigen.hpp>
 

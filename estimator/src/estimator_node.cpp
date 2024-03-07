@@ -9,7 +9,8 @@
 #include <opencv2/opencv.hpp>
 #include <gnss_comm/gnss_ros.hpp>
 #include <gnss_comm/gnss_utility.hpp>
-#include <gvins/LocalSensorExternalTrigger.h>
+#include <gvins_msgs/LocalSensorExternalTrigger.h>
+#include <gvins_msgs/StereoFeatureTrack.h>
 #include <sensor_msgs/NavSatFix.h>
 
 #include "estimator.h"
@@ -25,14 +26,13 @@ std::unique_ptr<Estimator> estimator_ptr;
 std::condition_variable con;
 double current_time = -1;
 queue<sensor_msgs::ImuConstPtr> imu_buf;
-queue<sensor_msgs::PointCloudConstPtr> feature_buf;
+queue<gvins_msgs::StereoFeatureTrackConstPtr> feature_buf;
 queue<std::vector<ObsPtr>> gnss_meas_buf;
 queue<sensor_msgs::PointCloudConstPtr> relo_buf;
 int sum_of_wait = 0;
 
 std::mutex m_buf;
 std::mutex m_state;
-std::mutex i_buf;
 std::mutex m_estimator;
 
 double latest_time;
@@ -57,7 +57,10 @@ double tmp_last_feature_time;
 uint64_t feature_msg_counter;
 int skip_parameter;
 
-void predict(const sensor_msgs::ImuConstPtr &imu_msg)
+void predict
+(
+    const sensor_msgs::ImuConstPtr &imu_msg
+)
 {
     double t = imu_msg->header.stamp.toSec();
     if (init_imu)
@@ -114,7 +117,12 @@ void update()
 }
 
 bool
-getMeasurements(std::vector<sensor_msgs::ImuConstPtr> &imu_msg, sensor_msgs::PointCloudConstPtr &img_msg, std::vector<ObsPtr> &gnss_msg)
+getMeasurements
+(
+    std::vector<sensor_msgs::ImuConstPtr> &imu_msg, 
+    gvins_msgs::StereoFeatureTrackConstPtr &img_msg, 
+    std::vector<ObsPtr> &gnss_msg
+)
 {
     if (imu_buf.empty() || feature_buf.empty() || (GNSS_ENABLE && gnss_meas_buf.empty()))
         return false;
@@ -173,7 +181,10 @@ getMeasurements(std::vector<sensor_msgs::ImuConstPtr> &imu_msg, sensor_msgs::Poi
     return true;
 }
 
-void imu_callback(const sensor_msgs::ImuConstPtr &imu_msg)
+void imu_callback
+(
+    const sensor_msgs::ImuConstPtr &imu_msg
+)
 {
     if (imu_msg->header.stamp.toSec() <= last_imu_t)
     {
@@ -235,7 +246,7 @@ void gnss_meas_callback(const GnssMeasMsgConstPtr &meas_msg)
     con.notify_one();
 }
 
-void feature_callback(const sensor_msgs::PointCloudConstPtr &feature_msg)
+void feature_callback(const gvins_msgs::StereoFeatureTrackConstPtr &feature_msg)
 {
     ++ feature_msg_counter;
 
@@ -263,7 +274,7 @@ void feature_callback(const sensor_msgs::PointCloudConstPtr &feature_msg)
     }
 }
 
-void local_trigger_info_callback(const gvins::LocalSensorExternalTriggerConstPtr &trigger_msg)
+void local_trigger_info_callback(const gvins_msgs::LocalSensorExternalTriggerConstPtr &trigger_msg)
 {
     std::lock_guard<std::mutex> lg(m_time);
 
@@ -324,9 +335,8 @@ void process()
 {
     while (true)
     {
-        std::vector<std::pair<std::vector<sensor_msgs::ImuConstPtr>, sensor_msgs::PointCloudConstPtr>> measurements;
         std::vector<sensor_msgs::ImuConstPtr> imu_msg;
-        sensor_msgs::PointCloudConstPtr img_msg;
+        gvins_msgs::StereoFeatureTrackConstPtr img_msg;
         std::vector<ObsPtr> gnss_msg;
 
         std::unique_lock<std::mutex> lk(m_buf);
@@ -386,18 +396,35 @@ void process()
 
         TicToc t_s;
         map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> image;
-        for (unsigned int i = 0; i < img_msg->points.size(); i++)
+        // Populate features from cam0
+        for (unsigned int i = 0; i < img_msg->track_0.points.size(); i++)
         {
-            int v = img_msg->channels[0].values[i] + 0.5;
-            int feature_id = v / NUM_OF_CAM;
-            int camera_id = v % NUM_OF_CAM;
-            double x = img_msg->points[i].x;
-            double y = img_msg->points[i].y;
-            double z = img_msg->points[i].z;
-            double p_u = img_msg->channels[1].values[i];
-            double p_v = img_msg->channels[2].values[i];
-            double velocity_x = img_msg->channels[3].values[i];
-            double velocity_y = img_msg->channels[4].values[i];
+            int feature_id = img_msg->track_0.channels[0].values[i];
+            int camera_id = 0;
+            double x = img_msg->track_0.points[i].x;
+            double y = img_msg->track_0.points[i].y;
+            double z = img_msg->track_0.points[i].z;
+            double p_u = img_msg->track_0.channels[1].values[i];
+            double p_v = img_msg->track_0.channels[2].values[i];
+            double velocity_x = img_msg->track_0.channels[3].values[i];
+            double velocity_y = img_msg->track_0.channels[4].values[i];
+            ROS_ASSERT(z == 1);
+            Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
+            xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y;
+            image[feature_id].emplace_back(camera_id,  xyz_uv_velocity);
+        }
+        // Populate features from cam1
+        for (unsigned int i = 0; i < img_msg->track_1.points.size(); i++)
+        {
+            int feature_id = img_msg->track_1.channels[0].values[i];
+            int camera_id = 1;
+            double x = img_msg->track_1.points[i].x;
+            double y = img_msg->track_1.points[i].y;
+            double z = img_msg->track_1.points[i].z;
+            double p_u = img_msg->track_1.channels[1].values[i];
+            double p_v = img_msg->track_1.channels[2].values[i];
+            double velocity_x = img_msg->track_1.channels[3].values[i];
+            double velocity_y = img_msg->track_1.channels[4].values[i];
             ROS_ASSERT(z == 1);
             Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
             xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y;

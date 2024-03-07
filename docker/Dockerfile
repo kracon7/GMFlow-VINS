@@ -14,18 +14,19 @@ RUN   apt-get update && apt-get install -y \
       git \
       cmake \
       libatlas-base-dev \
+      libeigen3-dev \
       libgoogle-glog-dev \
       libsuitesparse-dev \
       python-catkin-tools \
       ros-${ROS_DISTRO}-desktop-full && \
       rm -rf /var/lib/apt/lists/* && \
-      # install eigen
-      git clone https://gitlab.com/libeigen/eigen.git && \
-      cd eigen && \
-      git checkout tags/${EIGEN_VERSION} && \
-      mkdir build && cd build && \
-      cmake .. && make install && \
-      cd ../.. && rm -rf eigen && \
+      # # install eigen
+      # git clone https://gitlab.com/libeigen/eigen.git && \
+      # cd eigen && \
+      # git checkout tags/${EIGEN_VERSION} && \
+      # mkdir build && cd build && \
+      # cmake .. && make install && \
+      # cd ../.. && rm -rf eigen && \
       # Build and install Ceres
       git clone https://ceres-solver.googlesource.com/ceres-solver && \
       cd ceres-solver && \
@@ -33,12 +34,15 @@ RUN   apt-get update && apt-get install -y \
       mkdir build && cd build && \
       cmake .. && \
       make -j$(USE_PROC) install && \
-      cd ../.. && rm -rf ceres-solver && \
-      # create GVINS directory
-      mkdir -p $CATKIN_WS/src/ && \
+      cd ../.. && rm -rf ceres-solver
+
+
+RUN   mkdir -p $CATKIN_WS/src/ && \
       cd $CATKIN_WS/src && \
       # clone gnss_comm repo
-      git clone https://github.com/HKUST-Aerial-Robotics/gnss_comm.git
+      git clone https://github.com/HKUST-Aerial-Robotics/gnss_comm.git  && \
+      # clone vins-fusion repo
+      git clone https://github.com/HKUST-Aerial-Robotics/VINS-Fusion.git
 
 # Build GVINS
 WORKDIR $CATKIN_WS

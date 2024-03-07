@@ -1,9 +1,9 @@
-#include "projection_td_factor.h"
+#include "projectionTwoFrameOneCamFactor.h"
 
-Eigen::Matrix2d ProjectionTdFactor::sqrt_info;
-double ProjectionTdFactor::sum_t;
+Eigen::Matrix2d ProjectionTwoFrameOneCamFactor::sqrt_info;
+double ProjectionTwoFrameOneCamFactor::sum_t;
 
-ProjectionTdFactor::ProjectionTdFactor
+ProjectionTwoFrameOneCamFactor::ProjectionTwoFrameOneCamFactor
 (
     const Eigen::Vector3d &_pts_i, 
     const Eigen::Vector3d &_pts_j, 
@@ -37,12 +37,7 @@ td_j(_td_j)
 #endif
 };
 
-bool ProjectionTdFactor::Evaluate
-(
-    double const *const *parameters, 
-    double *residuals, 
-    double **jacobians
-) const
+bool ProjectionTwoFrameOneCamFactor::Evaluate(double const *const *parameters, double *residuals, double **jacobians) const
 {
     TicToc tic_toc;
     Eigen::Vector3d Pi(parameters[0][0], parameters[0][1], parameters[0][2]);
@@ -151,7 +146,7 @@ bool ProjectionTdFactor::Evaluate
     return true;
 }
 
-void ProjectionTdFactor::check(double **parameters)
+void ProjectionTwoFrameOneCamFactor::check(double **parameters)
 {
     double *res = new double[2];
     double **jaco = new double *[5];
@@ -190,8 +185,8 @@ void ProjectionTdFactor::check(double **parameters)
     double td = parameters[4][0];
 
     Eigen::Vector3d pts_i_td, pts_j_td;
-    pts_i_td = pts_i - (td - td_i) * velocity_i;
-    pts_j_td = pts_j - (td - td_j) * velocity_j;
+    pts_i_td = pts_i - (td - td_i ) * velocity_i;
+    pts_j_td = pts_j - (td - td_j ) * velocity_j;
     Eigen::Vector3d pts_camera_i = pts_i_td / inv_dep_i;
     Eigen::Vector3d pts_imu_i = qic * pts_camera_i + tic;
     Eigen::Vector3d pts_w = Qi * pts_imu_i + Pi;
@@ -266,5 +261,9 @@ void ProjectionTdFactor::check(double **parameters)
 
         num_jacobian.col(k) = (tmp_residual - residual) / eps;
     }
-    std::cout << num_jacobian << std::endl;
+    std::cout << num_jacobian.block<2, 6>(0, 0) << std::endl;
+    std::cout << num_jacobian.block<2, 6>(0, 6) << std::endl;
+    std::cout << num_jacobian.block<2, 6>(0, 12) << std::endl;
+    std::cout << num_jacobian.block<2, 1>(0, 18) << std::endl;
+    std::cout << num_jacobian.block<2, 1>(0, 19) << std::endl;
 }

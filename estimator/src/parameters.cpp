@@ -1,5 +1,6 @@
 #include "parameters.h"
 
+bool STEREO;
 double INIT_DEPTH;
 double MIN_PARALLAX;
 double ACC_N, ACC_W;
@@ -66,6 +67,9 @@ void readParameters(ros::NodeHandle &n)
         std::cerr << "ERROR: Wrong path to settings" << std::endl;
     }
 
+    int stereo_value = fsSettings["stereo"];
+    STEREO = (stereo_value == 0 ? false : true);
+
     fsSettings["imu_topic"] >> IMU_TOPIC;
 
     SOLVER_TIME = fsSettings["max_solver_time"];
@@ -121,19 +125,20 @@ void readParameters(ros::NodeHandle &n)
         if (ESTIMATE_EXTRINSIC == 0)
             ROS_WARN(" fix extrinsic param ");
 
-        cv::Mat cv_R, cv_T;
-        fsSettings["extrinsicRotation"] >> cv_R;
-        fsSettings["extrinsicTranslation"] >> cv_T;
-        Eigen::Matrix3d eigen_R;
-        Eigen::Vector3d eigen_T;
-        cv::cv2eigen(cv_R, eigen_R);
-        cv::cv2eigen(cv_T, eigen_T);
-        Eigen::Quaterniond Q(eigen_R);
-        eigen_R = Q.normalized();
-        RIC.push_back(eigen_R);
-        TIC.push_back(eigen_T);
-        ROS_INFO_STREAM("Extrinsic_R : " << std::endl << RIC[0]);
-        ROS_INFO_STREAM("Extrinsic_T : " << std::endl << TIC[0].transpose());
+        cv::Mat cv_T_0, cv_T_1;
+        fsSettings["body_T_cam0"] >> cv_T_0;
+        fsSettings["body_T_cam1"] >> cv_T_1;
+        Eigen::Matrix4d T_0, T_1;
+        cv::cv2eigen(cv_T_0, T_0);
+        cv::cv2eigen(cv_T_1, T_1);
+        RIC.push_back(T_0.block<3, 3>(0, 0));
+        RIC.push_back(T_1.block<3, 3>(0, 0));
+        TIC.push_back(T_0.block<3, 1>(0, 3));
+        TIC.push_back(T_1.block<3, 1>(0, 3));
+        ROS_INFO_STREAM("Camera 0 Extrinsic_R : " << std::endl << RIC[0]);
+        ROS_INFO_STREAM("         Extrinsic_T : " << std::endl << TIC[0].transpose());
+        ROS_INFO_STREAM("Camera 1 Extrinsic_R : " << std::endl << RIC[1]);
+        ROS_INFO_STREAM("         Extrinsic_T : " << std::endl << TIC[1].transpose());
         
     } 
 
