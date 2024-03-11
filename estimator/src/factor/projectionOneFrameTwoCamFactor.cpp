@@ -17,19 +17,11 @@ double ProjectionOneFrameTwoCamFactor::sum_t;
 ProjectionOneFrameTwoCamFactor::ProjectionOneFrameTwoCamFactor
 (
     const Eigen::Vector3d &_pts_i, 
-    const Eigen::Vector3d &_pts_j,
-    const Eigen::Vector2d &_velocity_i, 
-    const Eigen::Vector2d &_velocity_j
+    const Eigen::Vector3d &_pts_j
 ): 
 pts_i(_pts_i), 
 pts_j(_pts_j)
 {
-    velocity_i.x() = _velocity_i.x();
-    velocity_i.y() = _velocity_i.y();
-    velocity_i.z() = 0;
-    velocity_j.x() = _velocity_j.x();
-    velocity_j.y() = _velocity_j.y();
-    velocity_j.z() = 0;
 #ifdef UNIT_SPHERE_ERROR
     Eigen::Vector3d b1, b2;
     Eigen::Vector3d a = pts_j.normalized();

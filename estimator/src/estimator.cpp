@@ -1015,6 +1015,37 @@ void Estimator::optimization()
                 problem.AddResidualBlock(f, loss_function, para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Feature[feature_index]);
                
             }
+            if(STEREO && it_per_frame.is_stereo)
+            {                
+                Vector3d pts_j_right = it_per_frame.pointRight;
+                if(imu_i != imu_j)
+                {
+                    ProjectionTwoFrameTwoCamFactor *f = new ProjectionTwoFrameTwoCamFactor(
+                                pts_i, 
+                                pts_j_right);
+                    problem.AddResidualBlock(
+                                f, 
+                                loss_function, 
+                                para_Pose[imu_i], 
+                                para_Pose[imu_j], 
+                                para_Ex_Pose[0], 
+                                para_Ex_Pose[1], 
+                                para_Feature[feature_index]);
+                }
+                else
+                {
+                    ProjectionOneFrameTwoCamFactor *f = new ProjectionOneFrameTwoCamFactor(
+                                pts_i, 
+                                pts_j_right);
+                    problem.AddResidualBlock(
+                                f, 
+                                loss_function, 
+                                para_Ex_Pose[0], 
+                                para_Ex_Pose[1], 
+                                para_Feature[feature_index]);
+                }
+               
+            }
             f_m_cnt++;
         }
     }
@@ -1159,6 +1190,36 @@ void Estimator::optimization()
                                 para_Ex_Pose[0], para_Feature[feature_index]},
                             vector<int>{0, 3});
                         marginalization_info->addResidualBlockInfo(residual_block_info);
+                    }
+                    if(STEREO && it_per_frame.is_stereo)
+                    {
+                        Vector3d pts_j_right = it_per_frame.pointRight;
+                        if(imu_i != imu_j)
+                        {
+                            ProjectionTwoFrameTwoCamFactor *f = new ProjectionTwoFrameTwoCamFactor(
+                                        pts_i, 
+                                        pts_j_right);
+                            ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
+                                        f, 
+                                        loss_function,
+                                        vector<double *>{para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], 
+                                                        para_Ex_Pose[1], para_Feature[feature_index]},
+                                        vector<int>{0, 4});
+                            marginalization_info->addResidualBlockInfo(residual_block_info);
+                        }
+                        else
+                        {
+                            ProjectionOneFrameTwoCamFactor *f = new ProjectionOneFrameTwoCamFactor(
+                                        pts_i, 
+                                        pts_j_right);
+                            ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(
+                                        f, 
+                                        loss_function,
+                                        vector<double *>{para_Ex_Pose[0], para_Ex_Pose[1], 
+                                                        para_Feature[feature_index]},
+                                        vector<int>{2});
+                            marginalization_info->addResidualBlockInfo(residual_block_info);
+                        }
                     }
                 }
             }

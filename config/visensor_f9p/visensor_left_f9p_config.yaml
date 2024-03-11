@@ -1,7 +1,7 @@
 %YAML:1.0
 
 #common parameters
-stereo: 0
+stereo: 1
 imu_topic: "/imu0"
 image_topic_0: "/cam1/image_raw"
 image_topic_1: "/cam0/image_raw"
