@@ -110,8 +110,12 @@ void readParameters(ros::NodeHandle &n)
         ROS_WARN("have no prior about extrinsic param, calibrate extrinsic param");
         RIC.push_back(Eigen::Matrix3d::Identity());
         TIC.push_back(Eigen::Vector3d::Zero());
+        if (STEREO) 
+        {
+            RIC.push_back(Eigen::Matrix3d::Identity());
+            TIC.push_back(Eigen::Vector3d::Zero());
+        }
         EX_CALIB_RESULT_PATH = OUTPUT_DIR + "/extrinsic_parameter.csv";
-
     }
     else 
     {
@@ -123,20 +127,26 @@ void readParameters(ros::NodeHandle &n)
         if (ESTIMATE_EXTRINSIC == 0)
             ROS_WARN(" fix extrinsic param ");
 
-        cv::Mat cv_T_0, cv_T_1;
+        cv::Mat cv_T_0;
         fsSettings["body_T_cam0"] >> cv_T_0;
-        fsSettings["body_T_cam1"] >> cv_T_1;
-        Eigen::Matrix4d T_0, T_1;
+        Eigen::Matrix4d T_0;
         cv::cv2eigen(cv_T_0, T_0);
-        cv::cv2eigen(cv_T_1, T_1);
         RIC.push_back(T_0.block<3, 3>(0, 0));
-        RIC.push_back(T_1.block<3, 3>(0, 0));
         TIC.push_back(T_0.block<3, 1>(0, 3));
-        TIC.push_back(T_1.block<3, 1>(0, 3));
         ROS_INFO_STREAM("Camera 0 Extrinsic_R : " << std::endl << RIC[0]);
         ROS_INFO_STREAM("         Extrinsic_T : " << std::endl << TIC[0].transpose());
-        ROS_INFO_STREAM("Camera 1 Extrinsic_R : " << std::endl << RIC[1]);
-        ROS_INFO_STREAM("         Extrinsic_T : " << std::endl << TIC[1].transpose());
+
+        if (STEREO)
+        {
+            cv::Mat cv_T_1;
+            fsSettings["body_T_cam1"] >> cv_T_1;
+            Eigen::Matrix4d T_1;
+            cv::cv2eigen(cv_T_1, T_1);
+            RIC.push_back(T_1.block<3, 3>(0, 0));
+            TIC.push_back(T_1.block<3, 1>(0, 3));
+            ROS_INFO_STREAM("Camera 1 Extrinsic_R : " << std::endl << RIC[1]);
+            ROS_INFO_STREAM("         Extrinsic_T : " << std::endl << TIC[1].transpose());
+        }
         
     } 
 

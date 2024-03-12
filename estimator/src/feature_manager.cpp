@@ -53,11 +53,22 @@ bool FeatureManager::addFeatureCheckParallax
     double parallax_sum = 0;
     int parallax_num = 0;
     last_track_num = 0;
+    int stereo_ft_cnt = 0;
     for (auto &id_pts : image)
     {
         FeaturePerFrame f_per_fra(id_pts.second[0].second);
 
         int feature_id = id_pts.first;
+
+        // Eigen::Matrix<double, 7, 1> pts = id_pts.second[0].second;
+        // FeaturePerFrame f_per_fra(pts);
+        if(id_pts.second.size() == 2)
+        {
+            f_per_fra.rightObservation(id_pts.second[1].second);
+            assert(id_pts.second[1].first == 1);
+        }
+        stereo_ft_cnt++;
+
         auto it = find_if(feature.begin(), feature.end(), [feature_id](const FeaturePerId &it)
                           {
             return it.feature_id == feature_id;
@@ -74,6 +85,7 @@ bool FeatureManager::addFeatureCheckParallax
             last_track_num++;
         }
     }
+    ROS_DEBUG("** FT MNG ** Adding %zu features with %d stereo features", image.size(), stereo_ft_cnt);
 
     if (frame_count < 2 || last_track_num < 20)
         return true;
