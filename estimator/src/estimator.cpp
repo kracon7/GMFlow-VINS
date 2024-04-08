@@ -831,12 +831,12 @@ bool Estimator::failureDetection()
     }
     */
     Vector3d tmp_P = Ps[WINDOW_SIZE];
-    if ((tmp_P - last_P).norm() > 5)
+    if ((tmp_P - last_P).norm() > 2)
     {
         ROS_INFO(" big translation");
         return true;
     }
-    if (abs(tmp_P.z() - last_P.z()) > 1)
+    if (abs(tmp_P.z() - last_P.z()) > 0.5)
     {
         ROS_INFO(" big z translation");
         return true; 
@@ -846,10 +846,10 @@ bool Estimator::failureDetection()
     Quaterniond delta_Q(delta_R);
     double delta_angle;
     delta_angle = acos(delta_Q.w()) * 2.0 / 3.14 * 180.0;
-    if (delta_angle > 50)
+    if (delta_angle > 30)
     {
         ROS_INFO(" big delta_angle ");
-        //return true;
+        return true;
     }
     return false;
 }
