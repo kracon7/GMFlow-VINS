@@ -10,7 +10,7 @@ output_dir: "~/output/"
 cam0_calib: "cam0_pinhole.yaml"
 cam1_calib: "cam1_pinhole.yaml"
 
-gnss_enable: 1
+gnss_enable: 0
 gnss_meas_topic: "/ublox_driver/range_meas"           # GNSS raw measurement topic
 gnss_ephem_topic: "/ublox_driver/ephem"               # GPS, Galileo, BeiDou ephemeris
 gnss_glo_ephem_topic: "/ublox_driver/glo_ephem"       # GLONASS ephemeris

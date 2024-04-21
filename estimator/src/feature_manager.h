@@ -79,9 +79,7 @@ class FeaturePerId
 class FeatureManager
 {
   public:
-    FeatureManager(Matrix3d _Rs[]);
-
-    void setRic(Matrix3d _ric[]);
+    FeatureManager();
 
     void clearState();
 
@@ -91,12 +89,16 @@ class FeatureManager
     void debugShow();
     vector<pair<Vector3d, Vector3d>> getCorresponding(int frame_count_l, int frame_count_r);
 
-    //void updateDepth(const VectorXd &x);
     void setDepth(const VectorXd &x);
     void removeFailures();
-    void clearDepth(const VectorXd &x);
+    void clearDepth();
     VectorXd getDepthVector();
-    void triangulate(Vector3d Ps[], Vector3d tic[], Matrix3d ric[]);
+
+    // Triangulate a 3D point from a stereo matching
+    void triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0, Eigen::Matrix<double, 3, 4> &Pose1,
+                            Eigen::Vector2d &point0, Eigen::Vector2d &point1, Eigen::Vector3d &point_3d);
+
+    void triangulate(Vector3d Ps[], Matrix3d Rs[], Vector3d tic[], Matrix3d ric[]);
     void removeBackShiftDepth(Eigen::Matrix3d marg_R, Eigen::Vector3d marg_P, Eigen::Matrix3d new_R, Eigen::Vector3d new_P);
     void removeBack();
     void removeFront(int frame_count);
@@ -106,8 +108,6 @@ class FeatureManager
 
   private:
     double compensatedParallax2(const FeaturePerId &it_per_id, int frame_count);
-    const Matrix3d *Rs;
-    Matrix3d ric[NUM_OF_CAM];
 };
 
 #endif

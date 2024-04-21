@@ -1,6 +1,6 @@
 #include "estimator.h"
 
-Estimator::Estimator(): f_manager{Rs}
+Estimator::Estimator()
 {
     ROS_INFO("init begins");
     for (int i = 0; i < WINDOW_SIZE + 1; i++)
@@ -15,8 +15,10 @@ void Estimator::setParameter()
         tic[i] = TIC[i];
         ric[i] = RIC[i];
     }
-    f_manager.setRic(ric);
+    // Set factor weight here 
     ProjectionTwoFrameOneCamFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
+    ProjectionTwoFrameTwoCamFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
+    ProjectionOneFrameTwoCamFactor::sqrt_info = FOCAL_LENGTH / 1.5 * Matrix2d::Identity();
 }
 
 void Estimator::clearState()
@@ -498,18 +500,8 @@ bool Estimator::visualInitialAlign()
         all_image_frame[Headers[i].stamp.toSec()].is_key_frame = true;
     }
 
-    VectorXd dep = f_manager.getDepthVector();
-    for (int i = 0; i < dep.size(); i++)
-        dep[i] = -1;
-    f_manager.clearDepth(dep);
-
-    //triangulate on cam pose , no tic
-    Vector3d TIC_TMP[NUM_OF_CAM];
-    for(int i = 0; i < NUM_OF_CAM; i++)
-        TIC_TMP[i].setZero();
-    ric[0] = RIC[0];
-    f_manager.setRic(ric);
-    f_manager.triangulate(Ps, &(TIC_TMP[0]), &(RIC[0]));
+    f_manager.clearDepth();
+    f_manager.triangulate(Ps, Rs, tic, ric);
 
     double s = (x.tail<1>())(0);
     for (int i = 0; i <= WINDOW_SIZE; i++)
@@ -705,7 +697,7 @@ void Estimator::solveOdometry()
     if (solver_flag == NON_LINEAR)
     {
         TicToc t_tri;
-        f_manager.triangulate(Ps, tic, ric);
+        f_manager.triangulate(Ps, Rs, tic, ric);
         ROS_DEBUG("** EST solveOdo ** triangulation costs %f", t_tri.toc());
         optimization();
         if (GNSS_ENABLE)
@@ -831,12 +823,12 @@ bool Estimator::failureDetection()
     }
     */
     Vector3d tmp_P = Ps[WINDOW_SIZE];
-    if ((tmp_P - last_P).norm() > 2)
+    if ((tmp_P - last_P).norm() > 5)
     {
         ROS_INFO(" big translation");
         return true;
     }
-    if (abs(tmp_P.z() - last_P.z()) > 0.5)
+    if (abs(tmp_P.z() - last_P.z()) > 1)
     {
         ROS_INFO(" big z translation");
         return true; 
@@ -846,10 +838,10 @@ bool Estimator::failureDetection()
     Quaterniond delta_Q(delta_R);
     double delta_angle;
     delta_angle = acos(delta_Q.w()) * 2.0 / 3.14 * 180.0;
-    if (delta_angle > 30)
+    if (delta_angle > 50)
     {
         ROS_INFO(" big delta_angle ");
-        return true;
+        //return true;
     }
     return false;
 }

@@ -5,19 +5,8 @@ int FeaturePerId::endFrame()
     return start_frame + feature_per_frame.size() - 1;
 }
 
-FeatureManager::FeatureManager(Matrix3d _Rs[])
-    : Rs(_Rs)
+FeatureManager::FeatureManager() 
 {
-    for (int i = 0; i < NUM_OF_CAM; i++)
-        ric[i].setIdentity();
-}
-
-void FeatureManager::setRic(Matrix3d _ric[])
-{
-    for (int i = 0; i < NUM_OF_CAM; i++)
-    {
-        ric[i] = _ric[i];
-    }
 }
 
 void FeatureManager::clearState()
@@ -185,16 +174,10 @@ void FeatureManager::removeFailures()
     }
 }
 
-void FeatureManager::clearDepth(const VectorXd &x)
+void FeatureManager::clearDepth()
 {
-    int feature_index = -1;
     for (auto &it_per_id : feature)
-    {
-        it_per_id.used_num = it_per_id.feature_per_frame.size();
-        if (!(it_per_id.used_num >= 2 && it_per_id.start_frame < WINDOW_SIZE - 2))
-            continue;
-        it_per_id.estimated_depth = 1.0 / x(++feature_index);
-    }
+        it_per_id.estimated_depth = -1;
 }
 
 VectorXd FeatureManager::getDepthVector()
@@ -215,19 +198,107 @@ VectorXd FeatureManager::getDepthVector()
     return dep_vec;
 }
 
-void FeatureManager::triangulate(Vector3d Ps[], Vector3d tic[], Matrix3d ric[])
+
+void FeatureManager::triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0, Eigen::Matrix<double, 3, 4> &Pose1,
+                        Eigen::Vector2d &point0, Eigen::Vector2d &point1, Eigen::Vector3d &point_3d)
+{
+    Eigen::Matrix4d design_matrix = Eigen::Matrix4d::Zero();
+    design_matrix.row(0) = point0[0] * Pose0.row(2) - Pose0.row(0);
+    design_matrix.row(1) = point0[1] * Pose0.row(2) - Pose0.row(1);
+    design_matrix.row(2) = point1[0] * Pose1.row(2) - Pose1.row(0);
+    design_matrix.row(3) = point1[1] * Pose1.row(2) - Pose1.row(1);
+    Eigen::Vector4d triangulated_point;
+    triangulated_point =
+              design_matrix.jacobiSvd(Eigen::ComputeFullV).matrixV().rightCols<1>();
+    point_3d(0) = triangulated_point(0) / triangulated_point(3);
+    point_3d(1) = triangulated_point(1) / triangulated_point(3);
+    point_3d(2) = triangulated_point(2) / triangulated_point(3);
+}
+
+
+void FeatureManager::triangulate(Vector3d Ps[], Matrix3d Rs[], Vector3d tic[], Matrix3d ric[])
 {
     for (auto &it_per_id : feature)
     {
-        it_per_id.used_num = it_per_id.feature_per_frame.size();
-        if (!(it_per_id.used_num >= 2 && it_per_id.start_frame < WINDOW_SIZE - 2))
-            continue;
-
         if (it_per_id.estimated_depth > 0)
             continue;
+
+        if(STEREO && it_per_id.feature_per_frame[0].is_stereo)
+        {
+            int imu_i = it_per_id.start_frame;
+            Eigen::Matrix<double, 3, 4> leftPose;
+            Eigen::Vector3d t0 = Ps[imu_i] + Rs[imu_i] * tic[0];
+            Eigen::Matrix3d R0 = Rs[imu_i] * ric[0];
+            leftPose.leftCols<3>() = R0.transpose();
+            leftPose.rightCols<1>() = -R0.transpose() * t0;
+
+            Eigen::Matrix<double, 3, 4> rightPose;
+            Eigen::Vector3d t1 = Ps[imu_i] + Rs[imu_i] * tic[1];
+            Eigen::Matrix3d R1 = Rs[imu_i] * ric[1];
+            rightPose.leftCols<3>() = R1.transpose();
+            rightPose.rightCols<1>() = -R1.transpose() * t1;
+
+            Eigen::Vector2d point0, point1;
+            Eigen::Vector3d point3d;
+            point0 = it_per_id.feature_per_frame[0].point.head(2);
+            point1 = it_per_id.feature_per_frame[0].pointRight.head(2);
+
+            triangulatePoint(leftPose, rightPose, point0, point1, point3d);
+            Eigen::Vector3d localPoint;
+            localPoint = leftPose.leftCols<3>() * point3d + leftPose.rightCols<1>();
+            double depth = localPoint.z();
+            if (depth > 0)
+                it_per_id.estimated_depth = depth;
+            else
+                it_per_id.estimated_depth = INIT_DEPTH;
+            /*
+            Vector3d ptsGt = pts_gt[it_per_id.feature_id];
+            printf("stereo %d pts: %f %f %f gt: %f %f %f \n",it_per_id.feature_id, point3d.x(), point3d.y(), point3d.z(),
+                                                            ptsGt.x(), ptsGt.y(), ptsGt.z());
+            */
+            continue;
+        }
+        else if(it_per_id.feature_per_frame.size() > 1)
+        {
+            int imu_i = it_per_id.start_frame;
+            Eigen::Matrix<double, 3, 4> leftPose;
+            Eigen::Vector3d t0 = Ps[imu_i] + Rs[imu_i] * tic[0];
+            Eigen::Matrix3d R0 = Rs[imu_i] * ric[0];
+            leftPose.leftCols<3>() = R0.transpose();
+            leftPose.rightCols<1>() = -R0.transpose() * t0;
+
+            imu_i++;
+            Eigen::Matrix<double, 3, 4> rightPose;
+            Eigen::Vector3d t1 = Ps[imu_i] + Rs[imu_i] * tic[0];
+            Eigen::Matrix3d R1 = Rs[imu_i] * ric[0];
+            rightPose.leftCols<3>() = R1.transpose();
+            rightPose.rightCols<1>() = -R1.transpose() * t1;
+
+            Eigen::Vector2d point0, point1;
+            Eigen::Vector3d point3d;
+            point0 = it_per_id.feature_per_frame[0].point.head(2);
+            point1 = it_per_id.feature_per_frame[1].point.head(2);
+            triangulatePoint(leftPose, rightPose, point0, point1, point3d);
+            Eigen::Vector3d localPoint;
+            localPoint = leftPose.leftCols<3>() * point3d + leftPose.rightCols<1>();
+            double depth = localPoint.z();
+            if (depth > 0)
+                it_per_id.estimated_depth = depth;
+            else
+                it_per_id.estimated_depth = INIT_DEPTH;
+            /*
+            Vector3d ptsGt = pts_gt[it_per_id.feature_id];
+            printf("motion  %d pts: %f %f %f gt: %f %f %f \n",it_per_id.feature_id, point3d.x(), point3d.y(), point3d.z(),
+                                                            ptsGt.x(), ptsGt.y(), ptsGt.z());
+            */
+            continue;
+        }
+        it_per_id.used_num = it_per_id.feature_per_frame.size();
+        if (it_per_id.used_num < 4)
+            continue;
+
         int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
 
-        // ROS_ASSERT(NUM_OF_CAM == 1);
         Eigen::MatrixXd svd_A(2 * it_per_id.feature_per_frame.size(), 4);
         int svd_idx = 0;
 
@@ -271,6 +342,7 @@ void FeatureManager::triangulate(Vector3d Ps[], Vector3d tic[], Matrix3d ric[])
 
     }
 }
+
 
 void FeatureManager::removeOutlier()
 {
