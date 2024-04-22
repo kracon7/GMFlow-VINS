@@ -10,7 +10,7 @@ output_dir: "~/output/"
 cam0_calib: "cam0_pinhole.yaml"
 cam1_calib: "cam1_pinhole.yaml"
 
-gnss_enable: 0
+gnss_enable: 1
 gnss_meas_topic: "/ublox_driver/range_meas"           # GNSS raw measurement topic
 gnss_ephem_topic: "/ublox_driver/ephem"               # GPS, Galileo, BeiDou ephemeris
 gnss_glo_ephem_topic: "/ublox_driver/glo_ephem"       # GLONASS ephemeris
@@ -38,24 +38,24 @@ gnss_iono_default_parameters: !!opencv-matrix
 estimate_extrinsic: 0   # 0  Have an accurate extrinsic parameters. We will trust the following imu^R_cam, imu^T_cam, don't change it.
                         # 1  Have an initial guess about extrinsic parameters. We will optimize around your initial guess.
 
-
 body_T_cam0: !!opencv-matrix
    rows: 4
    cols: 4
    dt: d
-   data: [0.9999852, -0.0052939, -0.00125659, -0.03721684,
-          0.00531188, 0.999877, 0.01475706, 0.01059976,
-          0.00117831, -0.01476351, 0.99989032, 0.01732085,
-          0., 0., 0., 1. ]
+   data: [0.999491212860709, 0.031757149537694, 0.002966288500542, -0.006032399353045,
+         -0.031850265593887, 0.998696634427672, 0.039882238708956, 0.002751451804162,
+         -0.001695876123654, -0.039956424215385, 0.999199984071303,0.002757481683123,
+         0., 0., 0., 1.]
 
 body_T_cam1: !!opencv-matrix
    rows: 4
    cols: 4
    dt: d
-   data: [ 0.99998675, -0.00514585, 0.00010366, 0.06214699,
-         0.00514365, 0.99986851, 0.01537848, 0.01124987,
-        -0.00018278, -0.01537774, 0.99988174, 0.01741508,
-         0., 0., 0., 1. ]
+   data: [ 0.999490685673724, 0.031907628162628, 0.000522031134027, 0.089223961455974,
+         -0.031903090706952, 0.998696816649207, 0.039835426671289, -0.000178031847180,
+        0.000749703150183, -0.039831792324412, 0.999206118008397, 0.002246447738695,
+         0., 0., 0., 1.]
+
 
 #feature traker paprameters
 max_cnt: 150            # max feature number in feature tracking
@@ -74,15 +74,10 @@ max_num_iterations: 8   # max solver itrations, to guarantee real time
 keyframe_parallax: 10.0 # keyframe selection threshold (pixel)
 
 #imu parameters       The more accurate parameters you provide, the better performance
-# acc_n: 1.7776794347253089e-02          # accelerometer measurement noise standard deviation. #0.2   0.04
-# gyr_n: 2.5330868699673628e-03         # gyroscope measurement noise standard deviation.     #0.05  0.004
-# acc_w: 3.5117882144612179e-04         # accelerometer bias random work noise standard deviation.  #0.02
-# gyr_w: 1.8842690806410891e-05       # gyroscope bias random work noise standard deviation.     #4.0e-5
-# g_norm: 9.792337
-acc_n: 0.12017012487008882           # accelerometer measurement noise standard deviation. #2.5
-gyr_n: 0.026013041088982482           # gyroscope measurement noise standard deviation.     #0.05  
-acc_w: 0.0006340441374997897          # accelerometer bias random work noise standard deviation.  #3e-4
-gyr_w: 4.102358091270743e-05        # gyroscope bias random work noise standard deviation.     #1.6e-5
+acc_n: 1.6173701224327213e-01           # accelerometer measurement noise standard deviation. #2.5
+gyr_n: 4.0215257386372735e-02           # gyroscope measurement noise standard deviation.     #0.05
+acc_w: 3.5048022931587571e-04          # accelerometer bias random work noise standard deviation.  #3e-4
+gyr_w: 2.3582424018057772e-05        # gyroscope bias random work noise standard deviation.     #1.6e-5
 g_norm: 9.8         # gravity magnitude
 
 # acc_n: 0.2          # accelerometer measurement noise standard deviation. #0.2   0.04
