@@ -44,7 +44,7 @@ GnssPsrDoppFactor::GnssPsrDoppFactor(const ObsPtr &_obs, const EphemBasePtr &_ep
 
     LOG_IF(FATAL, pr_uura <= 0) << "pr_uura is " << pr_uura;
     LOG_IF(FATAL, dp_uura <= 0) << "dp_uura is " << dp_uura;
-    relative_sqrt_info = 10.0;
+    relative_sqrt_info = 1;
 }
 
 bool GnssPsrDoppFactor::Evaluate(double const *const *parameters, double *residuals, double **jacobians) const

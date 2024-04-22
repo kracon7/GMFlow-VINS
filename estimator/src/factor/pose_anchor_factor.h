@@ -15,7 +15,7 @@ class PoseAnchorFactor : public ceres::SizedCostFunction<6, 7>
         virtual bool Evaluate(double const *const *parameters, double *residuals, double **jacobians) const;
     private:
         Eigen::Matrix<double, 7, 1> _anchor_point;
-        constexpr static double sqrt_info = 120;
+        constexpr static double sqrt_info = 20;
 };
 
 #endif
