@@ -110,6 +110,8 @@ class Estimator
 
     // GNSS related
     bool gnss_ready;
+    bool enu_vis_ready;
+    Eigen::Vector3d vis_ecef;   // ECEF coordinate for ENU path visualization
     Eigen::Vector3d anc_ecef;
     Eigen::Matrix3d R_ecef_enu;
     double yaw_enu_local;

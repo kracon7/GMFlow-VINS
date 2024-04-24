@@ -5,7 +5,7 @@ stereo: 1
 imu_topic: "/camera/imu"
 image_topic_0: "/camera/infra1/image_rect_raw"
 image_topic_1: "/camera/infra2/image_rect_raw"
-output_dir: "~/output/"
+output_dir: "~/tmp/"
 
 cam0_calib: "cam0_pinhole.yaml"
 cam1_calib: "cam1_pinhole.yaml"

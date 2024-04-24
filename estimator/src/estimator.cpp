@@ -64,6 +64,8 @@ void Estimator::clearState()
     all_image_frame.clear();
 
     gnss_ready = false;
+    enu_vis_ready = false;
+    vis_ecef.setZero();
     anc_ecef.setZero();
     R_ecef_enu.setIdentity();
     para_yaw_enu_local[0] = 0;
@@ -645,7 +647,7 @@ bool Estimator::GNSSVIAlign()
     R_ecef_enu = ecef2rotation(anc_ecef);
 
     yaw_enu_local = aligned_yaw;
-
+    ROS_INFO("GNSS VI align successful!");
     return true;
 }
 
@@ -709,6 +711,13 @@ void Estimator::solveOdometry()
             if (gnss_ready)
             {
                 updateGNSSStatistics();
+            }
+
+            if (!enu_vis_ready && gnss_ready) 
+            {
+                ROS_INFO("Ready to visualize ENU path!");
+                enu_vis_ready = true;
+                vis_ecef = anc_ecef;
             }
         }
     }

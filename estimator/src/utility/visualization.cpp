@@ -77,6 +77,9 @@ void printStatistics(const Estimator &estimator, double t)
         return;
     printf("ts: %f\n", estimator.Headers[WINDOW_SIZE].stamp.toSec());
     printf("position: %f, %f, %f\n", estimator.Ps[WINDOW_SIZE].x(), estimator.Ps[WINDOW_SIZE].y(), estimator.Ps[WINDOW_SIZE].z());
+    // printf("vis_ecef: %f, %f, %f\n", estimator.vis_ecef.x(), estimator.vis_ecef.y(), estimator.vis_ecef.z());
+    // printf("anc_ecef: %f, %f, %f\n", estimator.anc_ecef.x(), estimator.anc_ecef.y(), estimator.anc_ecef.z());
+    
     // printf("body acc bias: %f, %f, %f\n", estimator.Bas[WINDOW_SIZE].x(), estimator.Bas[WINDOW_SIZE].y(), 
     //     estimator.Bas[WINDOW_SIZE].z());
     // Eigen::Vector3d Bas_w = estimator.Rs[WINDOW_SIZE] * estimator.Bas[WINDOW_SIZE];
@@ -120,23 +123,62 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
     if (estimator.solver_flag == Estimator::SolverFlag::NON_LINEAR)
     {
         nav_msgs::Odometry odometry;
+        Quaterniond tmp_Q;
         odometry.header = header;
         odometry.header.frame_id = "world";
         odometry.child_frame_id = "world";
-        Quaterniond tmp_Q;
-        tmp_Q = Quaterniond(estimator.Rs[WINDOW_SIZE]);
-        odometry.pose.pose.position.x = estimator.Ps[WINDOW_SIZE].x();
-        odometry.pose.pose.position.y = estimator.Ps[WINDOW_SIZE].y();
-        odometry.pose.pose.position.z = estimator.Ps[WINDOW_SIZE].z();
-        odometry.pose.pose.orientation.x = tmp_Q.x();
-        odometry.pose.pose.orientation.y = tmp_Q.y();
-        odometry.pose.pose.orientation.z = tmp_Q.z();
-        odometry.pose.pose.orientation.w = tmp_Q.w();
-        odometry.twist.twist.linear.x = estimator.Vs[WINDOW_SIZE].x();
-        odometry.twist.twist.linear.y = estimator.Vs[WINDOW_SIZE].y();
-        odometry.twist.twist.linear.z = estimator.Vs[WINDOW_SIZE].z();
+        if (estimator.enu_vis_ready)
+        {
+            Eigen::Matrix3d R_vis_ecef_enu = ecef2rotation(estimator.vis_ecef);
+            tmp_Q = Quaterniond(R_vis_ecef_enu.transpose() * estimator.R_ecef_enu 
+                                * estimator.R_enu_local * estimator.Rs[WINDOW_SIZE]);
+            Eigen::Vector3d tmp_P = R_vis_ecef_enu.transpose() * estimator.R_ecef_enu 
+                                * estimator.R_enu_local * estimator.Ps[WINDOW_SIZE];
+            Eigen::Vector3d tmp_V = R_vis_ecef_enu.transpose() * estimator.R_ecef_enu 
+                                * estimator.R_enu_local * estimator.Vs[WINDOW_SIZE];
+            odometry.pose.pose.position.x = tmp_P.x();
+            odometry.pose.pose.position.y = tmp_P.y();
+            odometry.pose.pose.position.z = tmp_P.z();
+            odometry.pose.pose.orientation.x = tmp_Q.x();
+            odometry.pose.pose.orientation.y = tmp_Q.y();
+            odometry.pose.pose.orientation.z = tmp_Q.z();
+            odometry.pose.pose.orientation.w = tmp_Q.w();
+            odometry.twist.twist.linear.x = tmp_V.x();
+            odometry.twist.twist.linear.y = tmp_V.y();
+            odometry.twist.twist.linear.z = tmp_V.z();
+        }
+        else
+        {
+            tmp_Q = Quaterniond(estimator.Rs[WINDOW_SIZE]);
+            odometry.pose.pose.position.x = estimator.Ps[WINDOW_SIZE].x();
+            odometry.pose.pose.position.y = estimator.Ps[WINDOW_SIZE].y();
+            odometry.pose.pose.position.z = estimator.Ps[WINDOW_SIZE].z();
+            odometry.pose.pose.orientation.x = tmp_Q.x();
+            odometry.pose.pose.orientation.y = tmp_Q.y();
+            odometry.pose.pose.orientation.z = tmp_Q.z();
+            odometry.pose.pose.orientation.w = tmp_Q.w();
+            odometry.twist.twist.linear.x = estimator.Vs[WINDOW_SIZE].x();
+            odometry.twist.twist.linear.y = estimator.Vs[WINDOW_SIZE].y();
+            odometry.twist.twist.linear.z = estimator.Vs[WINDOW_SIZE].z();
+            // write result to file
+            ofstream foutC(VINS_RESULT_PATH, ios::app);
+            foutC.setf(ios::fixed, ios::floatfield);
+            foutC.precision(0);
+            foutC << header.stamp.toSec() * 1e9 << ",";
+            foutC.precision(5);
+            foutC << estimator.Ps[WINDOW_SIZE].x() << ","
+                << estimator.Ps[WINDOW_SIZE].y() << ","
+                << estimator.Ps[WINDOW_SIZE].z() << ","
+                << tmp_Q.w() << ","
+                << tmp_Q.x() << ","
+                << tmp_Q.y() << ","
+                << tmp_Q.z() << ","
+                << estimator.Vs[WINDOW_SIZE].x() << ","
+                << estimator.Vs[WINDOW_SIZE].y() << ","
+                << estimator.Vs[WINDOW_SIZE].z() << "," << endl;
+            foutC.close();
+        }
         pub_odometry.publish(odometry);
-
         geometry_msgs::PoseStamped pose_stamped;
         pose_stamped.header = header;
         pose_stamped.header.frame_id = "world";
@@ -145,24 +187,6 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
         path.header.frame_id = "world";
         path.poses.push_back(pose_stamped);
         pub_path.publish(path);
-
-        // write result to file
-        ofstream foutC(VINS_RESULT_PATH, ios::app);
-        foutC.setf(ios::fixed, ios::floatfield);
-        foutC.precision(0);
-        foutC << header.stamp.toSec() * 1e9 << ",";
-        foutC.precision(5);
-        foutC << estimator.Ps[WINDOW_SIZE].x() << ","
-              << estimator.Ps[WINDOW_SIZE].y() << ","
-              << estimator.Ps[WINDOW_SIZE].z() << ","
-              << tmp_Q.w() << ","
-              << tmp_Q.x() << ","
-              << tmp_Q.y() << ","
-              << tmp_Q.z() << ","
-              << estimator.Vs[WINDOW_SIZE].x() << ","
-              << estimator.Vs[WINDOW_SIZE].y() << ","
-              << estimator.Vs[WINDOW_SIZE].z() << "," << endl;
-        foutC.close();
 
         pubGnssResult(estimator, header);
     }
@@ -194,29 +218,34 @@ void pubGnssResult(const Estimator &estimator, const std_msgs::Header &header)
     anc_lla_msg.altitude = anc_lla.z();
     pub_anc_lla.publish(anc_lla_msg);
 
-    // publish ENU pose and path
-    geometry_msgs::PoseStamped enu_pose_msg;
-    // camera-front orientation
-    Eigen::Matrix3d R_s_c;
-    R_s_c <<  0,  0,  1,
-             -1,  0,  0,
-              0, -1,  0;
-    Eigen::Matrix3d R_w_sensor = estimator.Rs[WINDOW_SIZE] * estimator.ric[0] * R_s_c.transpose();
-    Eigen::Quaterniond enu_ori(estimator.R_enu_local * R_w_sensor);
-    enu_pose_msg.header.stamp = header.stamp;
-    enu_pose_msg.header.frame_id = "world";     // "enu" will more meaningful, but for viz
-    enu_pose_msg.pose.position.x = estimator.enu_pos.x();
-    enu_pose_msg.pose.position.y = estimator.enu_pos.y();
-    enu_pose_msg.pose.position.z = estimator.enu_pos.z();
-    enu_pose_msg.pose.orientation.x = enu_ori.x();
-    enu_pose_msg.pose.orientation.y = enu_ori.y();
-    enu_pose_msg.pose.orientation.z = enu_ori.z();
-    enu_pose_msg.pose.orientation.w = enu_ori.w();
-    pub_enu_pose.publish(enu_pose_msg);
+    
+    if (estimator.enu_vis_ready) {
+        // publish ENU pose and path
+        geometry_msgs::PoseStamped enu_pose_msg;
+        Eigen::Matrix3d R_vis_ecef_enu = ecef2rotation(estimator.vis_ecef);
+        Eigen::Vector3d vis_enu_pos = R_vis_ecef_enu.transpose() *(estimator.ecef_pos - estimator.vis_ecef);
+        // camera-front orientation
+        Eigen::Matrix3d R_s_c;
+        R_s_c <<  0,  0,  1,
+                -1,  0,  0,
+                0, -1,  0;
+        Eigen::Matrix3d R_w_sensor = estimator.Rs[WINDOW_SIZE] * estimator.ric[0] * R_s_c.transpose();
+        Eigen::Quaterniond enu_ori(R_vis_ecef_enu.transpose() * estimator.R_ecef_enu * estimator.R_enu_local * R_w_sensor);
+        enu_pose_msg.header.stamp = header.stamp;
+        enu_pose_msg.header.frame_id = "world";     // "vis_enu" will more meaningful, but for viz
+        enu_pose_msg.pose.position.x = vis_enu_pos.x();
+        enu_pose_msg.pose.position.y = vis_enu_pos.y();
+        enu_pose_msg.pose.position.z = vis_enu_pos.z();
+        enu_pose_msg.pose.orientation.x = enu_ori.x();
+        enu_pose_msg.pose.orientation.y = enu_ori.y();
+        enu_pose_msg.pose.orientation.z = enu_ori.z();
+        enu_pose_msg.pose.orientation.w = enu_ori.w();
+        pub_enu_pose.publish(enu_pose_msg);
 
-    enu_path.header = enu_pose_msg.header;
-    enu_path.poses.push_back(enu_pose_msg);
-    pub_enu_path.publish(enu_path);
+        enu_path.header = enu_pose_msg.header;
+        enu_path.poses.push_back(enu_pose_msg);
+        pub_enu_path.publish(enu_path);
+    }
 
     // publish ENU-local tf
     Eigen::Quaterniond q_enu_world(estimator.R_enu_local);
@@ -295,9 +324,21 @@ void pubCameraPose(const Estimator &estimator, const std_msgs::Header &header)
     if (estimator.solver_flag == Estimator::SolverFlag::NON_LINEAR)
     {
         int i = idx2;
-        Vector3d P = estimator.Ps[i] + estimator.Rs[i] * estimator.tic[0];
-        Quaterniond R = Quaterniond(estimator.Rs[i] * estimator.ric[0]);
-
+        Vector3d P;
+        Quaterniond R;
+        if (estimator.enu_vis_ready)
+        {
+            Eigen::Matrix3d R_vis_ecef_enu = ecef2rotation(estimator.vis_ecef);
+            R = Quaterniond(R_vis_ecef_enu.transpose() * estimator.R_ecef_enu 
+                            * estimator.R_enu_local * estimator.Rs[i] * estimator.ric[0]);
+            P = R_vis_ecef_enu.transpose() * estimator.R_ecef_enu 
+                * estimator.R_enu_local * (estimator.Ps[i] + estimator.Rs[i] * estimator.tic[0]);
+        }
+        else
+        {
+            P = estimator.Ps[i] + estimator.Rs[i] * estimator.tic[0];
+            R = Quaterniond(estimator.Rs[i] * estimator.ric[0]);
+        }
         nav_msgs::Odometry odometry;
         odometry.header = header;
         odometry.header.frame_id = "world";
