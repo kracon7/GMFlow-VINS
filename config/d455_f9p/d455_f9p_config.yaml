@@ -22,7 +22,7 @@ gnss_dopp_std_thres: 2.0            # doppler std threshold
 gnss_track_num_thres: 20            # number of satellite tracking epochs before entering estimator
 gnss_ddt_sigma: 0.1
 
-gnss_local_online_sync: 0                       # if perform online synchronization betwen GNSS and local time
+gnss_local_online_sync: 1                       # if perform online synchronization betwen GNSS and local time
 local_trigger_info_topic: "/external_trigger"   # external trigger info of the local sensor, if `gnss_local_online_sync` is 1
 gnss_local_time_diff: 0.0                      # difference between GNSS and local time (s), if `gnss_local_online_sync` is 0
 
