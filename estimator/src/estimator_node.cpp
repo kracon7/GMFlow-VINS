@@ -261,7 +261,7 @@ void feature_callback(const sensor_msgs::PointCloudConstPtr &feature_msg)
     }
 }
 
-void local_trigger_info_callback(const gvins::LocalSensorExternalTriggerConstPtr &trigger_msg)
+void local_trigger_info_callback(const sensor_msgs::ImageConstPtr &trigger_msg)
 {
     std::lock_guard<std::mutex> lg(m_time);
 
@@ -269,10 +269,11 @@ void local_trigger_info_callback(const gvins::LocalSensorExternalTriggerConstPtr
     {
         time_diff_gnss_local = next_pulse_time - trigger_msg->header.stamp.toSec();
         estimator_ptr->inputGNSSTimeDiff(time_diff_gnss_local);
-        if (!time_diff_valid)       // just get calibrated
+        //if (!time_diff_valid)       // just get calibrated
             std::cout << "time difference between GNSS and VI-Sensor got calibrated: "
                 << std::setprecision(15) << time_diff_gnss_local << " s\n";
         time_diff_valid = true;
+        next_pulse_time_valid = false;
     }
 }
 
@@ -464,10 +465,8 @@ int main(int argc, char **argv)
 
         if (GNSS_LOCAL_ONLINE_SYNC)
         {
-            sub_gnss_time_pluse_info = n.subscribe(GNSS_TP_INFO_TOPIC, 100, 
-                gnss_tp_info_callback);
-            sub_local_trigger_info = n.subscribe(LOCAL_TRIGGER_INFO_TOPIC, 100, 
-                local_trigger_info_callback);
+            sub_gnss_time_pluse_info = n.subscribe(GNSS_TP_INFO_TOPIC, 100, gnss_tp_info_callback);
+            sub_local_trigger_info = n.subscribe(IMAGE_TOPIC, 100, local_trigger_info_callback);
         }
         else
         {

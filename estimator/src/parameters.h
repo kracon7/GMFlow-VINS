@@ -34,6 +34,7 @@ extern std::string EX_CALIB_RESULT_PATH;
 extern std::string VINS_RESULT_PATH;
 extern std::string FACTOR_GRAPH_RESULT_PATH;
 extern std::string IMU_TOPIC;
+extern std::string IMAGE_TOPIC;
 extern double TD;
 extern int ESTIMATE_TD;
 extern double ROW, COL;
