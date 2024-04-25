@@ -20,6 +20,7 @@ std::string EX_CALIB_RESULT_PATH;
 std::string VINS_RESULT_PATH;
 std::string FACTOR_GRAPH_RESULT_PATH;
 std::string IMU_TOPIC;
+std::string IMAGE_TOPIC;
 double ROW, COL;
 
 bool GNSS_ENABLE;
@@ -69,6 +70,7 @@ void readParameters(ros::NodeHandle &n)
     STEREO = (stereo_value == 0 ? false : true);
 
     fsSettings["imu_topic"] >> IMU_TOPIC;
+    fsSettings["image_topic"] >> IMAGE_TOPIC;
 
     SOLVER_TIME = fsSettings["max_solver_time"];
     NUM_ITERATIONS = fsSettings["max_num_iterations"];
