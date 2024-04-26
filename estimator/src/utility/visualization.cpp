@@ -160,11 +160,23 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
             odometry.twist.twist.linear.x = estimator.Vs[WINDOW_SIZE].x();
             odometry.twist.twist.linear.y = estimator.Vs[WINDOW_SIZE].y();
             odometry.twist.twist.linear.z = estimator.Vs[WINDOW_SIZE].z();
+
+        }
+        pub_odometry.publish(odometry);
+        geometry_msgs::PoseStamped pose_stamped;
+        pose_stamped.header = header;
+        pose_stamped.header.frame_id = "world";
+        pose_stamped.pose = odometry.pose.pose;
+        path.header = header;
+        path.header.frame_id = "world";
+        path.poses.push_back(pose_stamped);
+        pub_path.publish(path);
+
             // write result to file
             ofstream foutC(VINS_RESULT_PATH, ios::app);
             foutC.setf(ios::fixed, ios::floatfield);
             foutC.precision(0);
-            foutC << header.stamp.toSec() * 1e9 << ",";
+            foutC << (header.stamp.toSec() + estimator.diff_t_gnss_local) * 1e9 << ",";
             foutC.precision(5);
             foutC << estimator.Ps[WINDOW_SIZE].x() << ","
                 << estimator.Ps[WINDOW_SIZE].y() << ","
@@ -177,17 +189,6 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
                 << estimator.Vs[WINDOW_SIZE].y() << ","
                 << estimator.Vs[WINDOW_SIZE].z() << "," << endl;
             foutC.close();
-        }
-        pub_odometry.publish(odometry);
-        geometry_msgs::PoseStamped pose_stamped;
-        pose_stamped.header = header;
-        pose_stamped.header.frame_id = "world";
-        pose_stamped.pose = odometry.pose.pose;
-        path.header = header;
-        path.header.frame_id = "world";
-        path.poses.push_back(pose_stamped);
-        pub_path.publish(path);
-
         pubGnssResult(estimator, header);
     }
 }

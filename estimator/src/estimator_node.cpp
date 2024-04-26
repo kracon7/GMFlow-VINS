@@ -124,7 +124,9 @@ getMeasurements
     std::vector<ObsPtr> &gnss_msg
 )
 {
-    if (imu_buf.empty() || feature_buf.empty() || (GNSS_ENABLE && gnss_meas_buf.empty()))
+    //if (imu_buf.empty() || feature_buf.empty() || (GNSS_ENABLE && gnss_meas_buf.empty()))
+    //    return false;
+     if (imu_buf.empty() || feature_buf.empty())
         return false;
     
     double front_feature_ts = feature_buf.front()->header.stamp.toSec();
@@ -139,12 +141,13 @@ getMeasurements
     while (!feature_buf.empty() && front_imu_ts > front_feature_ts)
     {
         ROS_WARN("throw img, only should happen at the beginning");
-        ROS_DEBUG("feature buffer size is: %zu", feature_buf.size());
+        //ROS_DEBUG("feature buffer size is: %zu", feature_buf.size());
         feature_buf.pop();
         front_feature_ts = feature_buf.front()->header.stamp.toSec();
     }
 
-    if (GNSS_ENABLE)
+    //if (GNSS_ENABLE)
+    if (GNSS_ENABLE && !gnss_meas_buf.empty())
     {
         front_feature_ts += time_diff_gnss_local;
         double front_gnss_ts = time2sec(gnss_meas_buf.front()[0]->time);
@@ -170,12 +173,13 @@ getMeasurements
     img_msg = feature_buf.front();
     feature_buf.pop();
 
-    while (imu_buf.front()->header.stamp.toSec() < img_msg->header.stamp.toSec())
+    while (!imu_buf.empty() && imu_buf.front()->header.stamp.toSec() < img_msg->header.stamp.toSec())
     {
         imu_msg.emplace_back(imu_buf.front());
         imu_buf.pop();
     }
-    imu_msg.emplace_back(imu_buf.front());
+    if (!imu_buf.empty())
+        imu_msg.emplace_back(imu_buf.front());
     if (imu_msg.empty())
         ROS_WARN("no imu between two image");
     return true;
@@ -250,7 +254,7 @@ void feature_callback(const gvins_msgs::StereoFeatureTrackConstPtr &feature_msg)
 {
     ++ feature_msg_counter;
 
-    ROS_DEBUG("skip param %d, feature_msg_cnt: %lld", skip_parameter, (long long)feature_msg_counter);
+    //ROS_DEBUG("skip param %d, feature_msg_cnt: %lld", skip_parameter, (long long)feature_msg_counter);
     if (skip_parameter < 0 && time_diff_valid)
     {
         const double this_feature_ts = feature_msg->header.stamp.toSec()+time_diff_gnss_local;
@@ -282,7 +286,7 @@ void local_trigger_info_callback(const sensor_msgs::ImageConstPtr &trigger_msg)
     {
         time_diff_gnss_local = next_pulse_time - trigger_msg->header.stamp.toSec();
         estimator_ptr->inputGNSSTimeDiff(time_diff_gnss_local);
-        if (!time_diff_valid)       // just get calibrated
+        //if (!time_diff_valid)       // just get calibrated
             std::cout << "time difference between GNSS and VI-Sensor got calibrated: "
                 << std::setprecision(15) << time_diff_gnss_local << " s\n";
         time_diff_valid = true;
