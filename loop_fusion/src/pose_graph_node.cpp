@@ -436,7 +436,7 @@ int main(int argc, char **argv)
 
     m_camera = camodocal::CameraFactory::instance()->generateCameraFromYamlFile(config_file);
 
-    fsSettings["image_topic"] >> IMAGE_TOPIC;
+    fsSettings["image_topic_0"] >> IMAGE_TOPIC;
     fsSettings["pose_graph_save_path"] >> POSE_GRAPH_SAVE_PATH;
     fsSettings["output_dir"] >> VINS_RESULT_PATH;
     fsSettings["save_image"] >> DEBUG_IMAGE;
@@ -444,7 +444,7 @@ int main(int argc, char **argv)
     LOAD_PREVIOUS_POSE_GRAPH = fsSettings["load_previous_pose_graph"];
     if (VINS_RESULT_PATH[0] == '~')
         VINS_RESULT_PATH.replace(0, 1, std::getenv("HOME"));
-    VINS_RESULT_PATH = VINS_RESULT_PATH + "vio_loop.csv";
+    VINS_RESULT_PATH = VINS_RESULT_PATH + "/vio_loop.csv";
     std::ofstream fout(VINS_RESULT_PATH, std::ios::out);
     fout.close();
 

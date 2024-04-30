@@ -499,7 +499,7 @@ int main(int argc, char **argv)
         if (GNSS_LOCAL_ONLINE_SYNC)
         {
             sub_gnss_time_pluse_info = n.subscribe(GNSS_TP_INFO_TOPIC, 100, gnss_tp_info_callback);
-            sub_local_trigger_info = n.subscribe(IMAGE_TOPIC, 100, local_trigger_info_callback);
+            sub_local_trigger_info = n.subscribe(IMAGE0_TOPIC, 100, local_trigger_info_callback);
         }
         else
         {
