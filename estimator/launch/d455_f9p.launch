@@ -7,6 +7,10 @@
         <param name="gvins_folder" type="string" value="$(arg gvins_path)" />
     </node>
 
+    <node name="gvins_loop_closure" pkg="loop_fusion" type="loop_fusion_node" output="screen">
+        <param name="config_file" type="string" value="$(arg config_path)" />
+    </node>
+
     <node name="gvins" pkg="gvins" type="gvins" output="screen">
        <param name="config_file" type="string" value="$(arg config_path)" />
        <param name="gvins_folder" type="string" value="$(arg gvins_path)" />
